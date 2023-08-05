@@ -1,15 +1,21 @@
 pico-8 cartridge // http://www.pico-8.com
 version 41
 __lua__
+--main
 
 sprites={}
+cell_size=8
+row_size=16
+big_size=8
+big_size=32
+big_size=16
 function _init()
 	_update=start_update
 	_draw=start_draw
 end
 
 function start_update()
-	if (btnp(4)) then
+	if (btnp(🅾️)) then
 		tt=0
 		sprites={}
 
@@ -19,6 +25,8 @@ function start_update()
 		ghost=ghost_init()
 		add(sprites,ghost)
 
+		world=world_init()
+
 		_update=game_update
 		_draw=game_draw
 	end
@@ -26,7 +34,8 @@ end
 
 function start_draw()
 	cls()
-	print("press z to start", 64, 64)
+	local message="press 🅾️ to start"
+	print(message,64-(#message*8)/4-2,64,7)
 end
 
 function game_update()
@@ -36,16 +45,16 @@ function game_update()
 	end
 	update_sprites()
 	sort_sprites()
-	if (btnp(4)) then
+	if (btnp(🅾️)) then
 		_update=start_update
 		_draw=start_draw
 	end
 end
 
 function game_draw()
-	cls(13)
 	palt(0,false)
 	palt(13,true)
+	world:draw()
 	draw_sprites()
 end
 
@@ -70,12 +79,21 @@ function sort_sprites()
 		end
 	end
 end
+
+function zspr(frame,x,y,flip_x,flip_y)
+	local sx=flr(frame%row_size)*cell_size
+	local sy=flr(frame/row_size)*cell_size
+
+	sspr(sx,sy,cell_size,cell_size,x,y,big_size,big_size,flip_x,flip_y)
+end
 -->8
 --player
 
 player={}
+player_speed=1*big_size/cell_size
 friction=0.8
-max_speed=1.5
+gravity=0.2*big_size/cell_size
+max_speed=1.5*big_size/cell_size
 
 function player_init()
 	self={
@@ -88,20 +106,28 @@ function player_init()
 		frame_body_idle=17,
 		frame_body_walk={18, 17, 19},
 		frame_body_walk_index=1,
+		boost=-1.5*big_size/cell_size,
+		vy=0,
+		ty=0,
+		hold_jump=0,
+		ready_jump=true,
+		go_jump=false,
 	}
 	
 	function self:update()
 		self:get_input()
+		self:collision()
 		self:move()
 		self:animate()
 	end
 	
 	function self:draw()
-		self:draw_head()
 		self:draw_body()
+		self:draw_head()
 	end
 
 	function self:get_input()
+		local speed=player_speed
 		self.dx*=friction
 		self.dy*=friction
 		if abs(self.dx)<0.1 then
@@ -111,32 +137,81 @@ function player_init()
 			self.dy=0
 		end
 		if btn(⬅️) then
-			self.dx-=1
+			self.dx-=speed
 			self.turned=true
 		end
 		if btn(➡️) then
-			self.dx+=1
+			self.dx+=speed
 			self.turned=false
 		end
 		if btn(⬆️) then
-			self.dy-=1
+			self.dy-=speed
 		end
 		if btn(⬇️) then
-			self.dy+=1
+			self.dy+=speed
 		end
-		if abs(self.dx)>max_speed then
+
+		if not self.go_jump then
+			if self.ready_jump and btn(❎) then
+				self.hold_jump+=1
+			elseif self.hold_jump>0 then
+				self.go_jump=true
+			end
+		end
+
+		if self.hold_jump>0 and self.go_jump then
+			local a=mid(.2,self.hold_jump/10,1)
+			self.vy=a*self.boost
+			self.ready_jump=false
+			self.hold_jump=0
+		end
+		if self.ty<0 then
+			self.vy+=gravity
+		end
+		local ms=max_speed
+		if self.hold_jump>0 and not self.go_jump then
+			ms*=0.25
+		end
+		if abs(self.dx)>ms then
 			local sign=abs(self.dx)/self.dx
-			self.dx=max_speed*sign
+			self.dx=ms*sign
 		end
-		if abs(self.dy)>max_speed then
+		if abs(self.dy)>ms then
 			local sign=abs(self.dy)/self.dy
-			self.dy=max_speed*sign
+			self.dy=ms*sign
 		end
+	end
+
+	function self:collision()
+		self:collision_floor()
+		self:collision_map()
+		--self:collision_sprites()
+	end
+
+	function self:collision_floor()
+		if self.vy>0 and self.ty>=0 and self.go_jump then
+			self.ty=0
+			self.vy=0
+			self.ready_jump=true
+			self.go_jump=false
+		end
+	end
+
+	function self:collision_map()
+		local x1=flr(self.x/cell_size)
+		local y1=flr(self.y/cell_size)
+		local x2=flr((self.x+big_size-1)/cell_size)
+		local y2=flr((self.y+big_size-1)/cell_size)
+		local x3=flr((self.x+big_size-1)/cell_size)
+		local y3=flr(self.y/cell_size)
+		local x4=flr(self.x/cell_size)
+		local y4=flr((self.y+big_size-1)/cell_size)
 	end
 
 	function self:move()
 		self.x+=self.dx
 		self.y+=self.dy
+		self.ty+=self.vy
 	end
 
 	function self:animate()
@@ -144,6 +219,9 @@ function player_init()
 	end
 
 	function self:animate_body()
+		if self.ty<0 then
+			return
+		end
 		if self.dx==0 and self.dy==0 then
 			self.frame_body_walk_index=1
 		else
@@ -157,7 +235,11 @@ function player_init()
 	end
 
 	function self:draw_head()
-		spr(self.frame_head,self.x,self.y,1,1,self.turned)
+		local y=self.y+self.ty
+		if self.hold_jump>0 then
+			y+=1*big_size/cell_size
+		end
+		zspr(self.frame_head,self.x,y,self.turned)
 	end
 
 	function self:get_frame_body()
@@ -169,7 +251,8 @@ function player_init()
 	end
 
 	function self:draw_body()
-		spr(self:get_frame_body(),self.x,self.y+8,1,1,self.turned)
+		local y=self.y+self.ty
+		zspr(self:get_frame_body(),self.x,y+big_size,self.turned)
 	end
 	
 	return self
@@ -178,18 +261,22 @@ end
 --ghost
 
 ghost={}
-proximity=10
+
+ghost_speed=big_size/cell_size
+near=10*big_size/cell_size
+close=20*big_size/cell_size
 
 function ghost_init()
 	self={
-		x=64,
-		y=64,
+		x=128,
+		y=32,
 		dx=0,
 		dy=0,
-		hover=0,
+		hover_x=0,
+		hover_y=0,
 		turned=false,
-		frame_head=5,
-		frame_body={21,22,21,23},
+		frame_head=33,
+		frame_body={49,50,49,51},
 		frame_body_index=1,
 	}
 
@@ -204,16 +291,20 @@ function ghost_init()
 	end
 
 	function self:move()
-		if abs(player.x-self.x)<proximity and abs(player.y-self.y)<proximity then
+		if abs(player.x-self.x)<near and abs(player.y-self.y)<near then
 		else
 			self:move_to_player()
 		end
 	end
 
 	function self:move_to_player()
+		local a=ghost_speed
+		if abs(player.x-self.x)<close and abs(player.y-self.y)<close then
+			a=ghost_speed/2
+		end
 		local angle=atan2(player.x-self.x,player.y-self.y)
-		self.dx=cos(angle)
-		self.dy=sin(angle)
+		self.dx=cos(angle)*a
+		self.dy=sin(angle)*a
 		self.x+=self.dx
 		self.y+=self.dy
 		if self.dx<0 then
@@ -234,12 +325,15 @@ function ghost_init()
 		if self.frame_body_index>#self.frame_body then
 			self.frame_body_index=1
 		end
-		self.hover=cos(tt/100)*2-10
+		local a=big_size/cell_size
+		self.hover_x=a*cos(tt/500)-a*10
+		self.hover_y=a*cos(tt/100)*2-a*10
 	end
 
 	function self:draw_head()
-		local y=self.y+self.hover
-		spr(5,self.x,y,1,1,self.turned)
+		local x=self.x
+		local y=self.y+self.hover_y
+		zspr(self.frame_head,x,y,self.turned)
 	end
 
 	function self:get_frame_body()
@@ -248,26 +342,62 @@ function ghost_init()
 
 
 	function self:draw_body()
-		local y=self.y+self.hover+8
-		spr(self:get_frame_body(),self.x,y,1,1,self.turned)
+		local y=self.y+self.hover_y+big_size
+		zspr(self:get_frame_body(),self.x,y,self.turned)
 	end
 
 	return self
 end
+-->8
+--map
+
+world={}
+
+function world_init()
+	self={}
+	
+	function self:update()
+	end
+	
+	function self:draw()
+		cls(1)
+		local horizon=64/big_size
+		--rectfill(0,horizon*cell_size,128,128,13)
+		rectfill(0,horizon*cell_size,128,128,3)
+	end
+	
+	return self
+end
 __gfx__
-00000000dd888888dd888888dd88888800000000dddddddddddddddddddddddd0000000000000000000000000000000000000000000000000000000000000000
-00000000d888aaaad888aaaad888aaaa00000000dddddddddddddddddddddddd0000000000000000000000000000000000000000000000000000000000000000
-0070070088affffd88affffd88affffd00000000ddd777ddddd777ddddd777dd0000000000000000000000000000000000000000000000000000000000000000
-0007700088ff0f0d88ff0f0d88ff0f0d00000000dd77777ddd77777ddd77777d0000000000000000000000000000000000000000000000000000000000000000
-00077000aaf070fdaaf070fdaaf070fd00000000d777777dd777777dd777777d0000000000000000000000000000000000000000000000000000000000000000
-00700700aaff0fffaaff0fffaaff0fff00000000d770707dd770707dd770707d0000000000000000000000000000000000000000000000000000000000000000
-00000000aaeffffdaaeffffdaaeffffd00000000d770707dd770707dd770707d0000000000000000000000000000000000000000000000000000000000000000
-00000000aafeefddaafeefddaafeefdd00000000d777777dd777777dd777777d0000000000000000000000000000000000000000000000000000000000000000
-0000000078ffff8778ffff8778ffff8700000000d777777dd777777dd777777d0000000000000000000000000000000000000000000000000000000000000000
-0000000078777787787777877877778700000000d777777dd777777dd777777d0000000000000000000000000000000000000000000000000000000000000000
-00000000f888888ff888888ff888888f00000000d777d7ddd77d7d7dd77d7d7d0000000000000000000000000000000000000000000000000000000000000000
-00000000d888888dd888888dd888888d00000000d7d7ddddd77ddddddd7ddddd0000000000000000000000000000000000000000000000000000000000000000
-00000000d888d88ddffdd88dd888dffd00000000ddddddddd7dddddddddddddd0000000000000000000000000000000000000000000000000000000000000000
-00000000dffddffddaaadffddffddaaa00000000dddddddddddddddddddddddd0000000000000000000000000000000000000000000000000000000000000000
-00000000daaadaaadddddaaadaaadddd00000000dddddddddddddddddddddddd0000000000000000000000000000000000000000000000000000000000000000
-00000000dddddddddddddddddddddddd00000000dddddddddddddddddddddddd0000000000000000000000000000000000000000000000000000000000000000
+00000000dd888888dd888888dd888888000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000d888aaaad888aaaad888aaaa000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0070070088affffd88affffd88affffd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0007700088ff0f0d88ff0f0d88ff0f0d000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00077000aaf070fdaaf070fdaaf070fd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00700700aaff0fffaaff0fffaaff0fff000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000aaeffffdaaeffffdaaeffffd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000aafeefddaafeefddaafeefdd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000000078ffff8778ffff8778ffff87000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000787777877877778778777787000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000f888888ff888888ff888888f000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000d888888dd888888dd888888d000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000d888d88ddffdd88dd888dffd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000dffddffddaaadffddffddaaa000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000daaadaaadddddaaadaaadddd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000dddddddddddddddddddddddd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000dddddddddddddddddddddddd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000dddddddddddddddddddddddd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000ddd777ddddd777ddddd777dd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000dd77777ddd77777ddd77777d000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000d777777dd777777dd777777d000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000d770707dd770707dd770707d000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000d770707dd770707dd770707d000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000d777777dd777777dd777777d000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000d777777dd777777dd777777d000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000d777777dd777777dd777777d000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000d777d7ddd77d7d7dd77d7d7d000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000d7d7ddddd77ddddddd7ddddd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000ddddddddd7dddddddddddddd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000dddddddddddddddddddddddd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000dddddddddddddddddddddddd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000dddddddddddddddddddddddd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
