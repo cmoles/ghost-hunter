@@ -680,8 +680,8 @@ function world_init()
 		circfill(moon_x,moon_y,moon_r,14)
 		circfill(moon_x+5,moon_y-5,moon_r,1)
 
-		self:draw_clouds()
 		self:draw_stars()
+		self:draw_clouds()
 
 		self:draw_cemetary()
 	end
