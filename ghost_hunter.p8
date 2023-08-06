@@ -628,7 +628,9 @@ function world_init()
 		if player.turned then
 			x-=big_size*4+1
 		end
+		clip(0,64,128,64)
 		ovalfill(x,y,x+r,y+r/2,14)
+		clip()
 	end
 	
 	return self
