@@ -6,9 +6,10 @@ __lua__
 sprites={}
 cell_size=8
 row_size=16
-big_size=8
 big_size=32
+big_size=8
 big_size=16
+scalar=big_size/cell_size
 function _init()
 	_update=start_update
 	_draw=start_draw
@@ -105,6 +106,14 @@ function zspr(frame,x,y,flip_x,flip_y)
 	sspr(sx,sy,cell_size,cell_size,x,y,big_size,big_size,flip_x,flip_y)
 end
 
+function zset(x,y,c)
+	for j=0,scalar-1 do
+		for k=0,scalar-1 do
+			pset(x+j,y+k,c)
+		end
+	end
+end
+
 function draw_shadow_line(a,b,n,x,y)
 	for d=1,3 do
 		for j=1,a do
@@ -118,11 +127,11 @@ end
 --player
 
 player={}
-player_speed=1*big_size/cell_size
+player_speed=1*scalar
 friction=0.8
-gravity=0.2*big_size/cell_size
-max_speed_x=1.5*big_size/cell_size
-max_speed_y=.75*big_size/cell_size
+gravity=0.2*scalar
+max_speed_x=1.5*scalar
+max_speed_y=.75*scalar
 
 function player_init()
 	local x0,y0=64,64
@@ -136,7 +145,8 @@ function player_init()
 		frame_body_idle=17,
 		frame_body_walk={18, 17, 19},
 		frame_body_walk_index=1,
-		boost=-1.7*big_size/cell_size,
+		frame_lantern=4,
+		boost=-1.7*scalar,
 		vy=0,
 		ty=0,
 		hold_jump=0,
@@ -156,6 +166,7 @@ function player_init()
 	end
 	
 	function self:draw()
+		self:draw_lantern()
 		self:draw_body()
 		self:draw_head()
 	end
@@ -281,7 +292,7 @@ function player_init()
 	function self:draw_head()
 		local y=self.y+self.ty
 		if self.hold_jump>0 then
-			y+=1*big_size/cell_size
+			y+=1*scalar
 		end
 		zspr(self.frame_head,self.x,y,self.turned)
 	end
@@ -299,6 +310,32 @@ function player_init()
 		zspr(self:get_frame_body(),self.x,y+big_size,self.turned)
 	end
 
+	function self:draw_lantern()
+		local x=self.x
+		local y=self.y+self.ty+big_size/2+scalar
+		if self.turned then
+			x-=big_size-scalar
+		else
+			x+=big_size-scalar
+		end
+		if self.hold_jump>0 then
+			y+=1*scalar
+		end
+		zspr(self.frame_lantern,x,y,self.turned)
+		self:draw_flame(x,y)
+	end
+
+	function self:draw_flame(x,y)
+		if self.turned then
+			x-=1*scalar
+		end
+		for i=1,3 do
+			local rx=flr(rnd(3)+1)*scalar+2*scalar
+			local ry=flr(rnd(2)+1)*scalar+4*scalar
+			zset(x+rx,y+ry,9)
+		end
+	end
+
 	function self:draw_shadow()
 		if self.ty<0 then
 			self:draw_shadow_line(-1)
@@ -309,7 +346,7 @@ function player_init()
 	end
 	function self:draw_shadow_circle()
 		if self.ty<0 then
-			local a=big_size/cell_size
+			local a=scalar
 			local b=max(3,self.ty*a/self.boost)
 			local x=self.x+big_size/2
 			local y=self.y+big_size*2-a
@@ -319,7 +356,7 @@ function player_init()
 	end
 
 	function self:draw_shadow_line(n)
-		local a=big_size/cell_size
+		local a=scalar
 		local b=mid(big_size/4,self.ty*a/self.boost,big_size/2)
 		local x=self.x+big_size/4
 		local y=self.y+2*(big_size)
@@ -337,9 +374,9 @@ end
 -->8
 --ghost
 
-ghost_speed=big_size/cell_size
-near=10*big_size/cell_size
-close=20*big_size/cell_size
+ghost_speed=scalar
+near=10*scalar
+close=20*scalar
 
 function ghost_init()
 	local x0=128-256*flr(rnd(2))
@@ -415,7 +452,7 @@ function ghost_init()
 		if self.frame_body_index>#self.frame_body then
 			self.frame_body_index=1
 		end
-		local a=big_size/cell_size
+		local a=scalar
 		self.hover_p=cos(tt/100)
 		self.hover_y=a*self.hover_p*2-a*10
 	end
@@ -444,7 +481,7 @@ function ghost_init()
 	end
 
 	function self:draw_shadow_line(n)
-		local a=big_size/cell_size
+		local a=scalar
 		local b=big_size/4
 		local x=self.x+big_size/4
 		local y=self.y+2*(big_size)
@@ -456,7 +493,7 @@ end
 -->8
 --skeleton
 
-skeleton_speed=0.8*big_size/cell_size
+skeleton_speed=0.8*scalar
 
 function skeleton_init(x0,y0)
 	local self={
@@ -523,7 +560,7 @@ function skeleton_init(x0,y0)
 	end
 
 	function self:animate_body()
-		local a=big_size/cell_size
+		local a=scalar
 		self.hover_p=cos(tt/100)
 		self.hover_y=a*self.hover_p*2-a*3
 	end
@@ -540,7 +577,7 @@ function skeleton_init(x0,y0)
 	end
 
 	function self:draw_shadow_line(n)
-		local a=big_size/cell_size
+		local a=scalar
 		local b=big_size/4
 		local x=self.x+big_size/4
 		local y=self.y+2*(big_size)
@@ -578,23 +615,36 @@ function world_init()
 	
 	function self:draw()
 		cls(1)
-		rectfill(0,64,128,128,3)
+		--rectfill(0,64,128,128,3)
+		--rectfill(0,64,128,128,14)
+		rectfill(0,64,128,128,2)
+		self:draw_lantern_light()
+	end
+
+	function self:draw_lantern_light()
+		local x=player.x+big_size
+		local y=player.y+big_size
+		local r=big_size*3
+		if player.turned then
+			x-=big_size*4+1
+		end
+		ovalfill(x,y,x+r,y+r/2,14)
 	end
 	
 	return self
 end
 __gfx__
-00000000dd888888dd888888dd8888880000000000000000dddddddd000000000000000000000000dddddddd0000000000000000000000000000000000000000
-00000000d888aaaad888aaaad888aaaa0000000000000000dddddddd000000000000000000000000d55555dd0000000000000000000000000000000000000000
-0070070088affffd88affffd88affffd0000000000000000dddddddd000000000000000000000000d555555d0000000000000000000000000000000000000000
-0007700088ff0f0d88ff0f0d88ff0f0d0000000000000000d666666d000000000000000000000000d500055d0000000000000000000000000000000000000000
-00077000aaf070fdaaf070fdaaf070fd0000000000000000d660606d000000000000000000000000d555555d0000000000000000000000000000000000000000
-00700700aaff0fffaaff0fffaaff0fff0000000000000000d666666d000000000000000000000000d550055d0000000000000000000000000000000000000000
-00000000aaeffffdaaeffffdaaeffffd0000000000000000dd6d6d6d000000000000000000000000d555555d0000000000000000000000000000000000000000
-00000000aafeefddaafeefddaafeefdd0000000000000000dddddddd000000000000000000000000d555555d0000000000000000000000000000000000000000
-0000000078ffff8778ffff8778ffff870000000000000000d666666d000000000000000000000000d44d444d0000000000000000000000000000000000000000
-000000007877778778777787787777870000000000000000ddd6dddd00000000000000000000000044d4444d0000000000000000000000000000000000000000
-00000000f888888ff888888ff888888f0000000000000000dd6666dd000000000000000000000000444444d40000000000000000000000000000000000000000
+00000000dd888888dd888888dd888888dd88dddd00000000dddddddd000000000000000000000000dddddddd0000000000000000000000000000000000000000
+00000000d888aaaad888aaaad888aaaadf888ddd00000000dddddddd000000000000000000000000d55555dd0000000000000000000000000000000000000000
+0070070088affffd88affffd88affffd7ff88ddd00000000dddddddd000000000000000000000000d555555d0000000000000000000000000000000000000000
+0007700088ff0f0d88ff0f0d88ff0f0d77d8a8dd00000000d666666d000000000000000000000000d500055d0000000000000000000000000000000000000000
+00077000aaf070fdaaf070fdaaf070fd7d8aaa8d00000000d660606d000000000000000000000000d555555d0000000000000000000000000000000000000000
+00700700aaff0fffaaff0fffaaff0fffdd8aaa8d00000000d666666d000000000000000000000000d550055d0000000000000000000000000000000000000000
+00000000aaeffffdaaeffffdaaeffffddd8aaa8d00000000dd6d6d6d000000000000000000000000d555555d0000000000000000000000000000000000000000
+00000000aafeefddaafeefddaafeefdddd88888d00000000dddddddd000000000000000000000000d555555d0000000000000000000000000000000000000000
+0000000078ffff8d78ffff8d78ffff8d0000000000000000d666666d000000000000000000000000d44d444d0000000000000000000000000000000000000000
+000000007877778d7877778d7877778d0000000000000000ddd6dddd00000000000000000000000044d4444d0000000000000000000000000000000000000000
+00000000f888888df888888df888888d0000000000000000dd6666dd000000000000000000000000444444d40000000000000000000000000000000000000000
 00000000d888888dd888888dd888888d0000000000000000ddd6dddd000000000000000000000000444044440000000000000000000000000000000000000000
 00000000d888d88ddffdd88dd888dffd0000000000000000dd666ddd00000000000000000000000044444d4d0000000000000000000000000000000000000000
 00000000dffddffddaaadffddffddaaa0000000000000000ddd6dddd000000000000000000000000d4d4444d0000000000000000000000000000000000000000
