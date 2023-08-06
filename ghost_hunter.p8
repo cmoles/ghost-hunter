@@ -7,8 +7,8 @@ sprites={}
 cell_size=8
 row_size=16
 big_size=32
-big_size=8
 big_size=16
+big_size=8
 scalar=big_size/cell_size
 function _init()
 	_update=start_update
@@ -69,20 +69,20 @@ function over_draw()
 end
 
 function update_sprites()
-	for i=1,#sprites do
-		sprites[i]:update()
-	end
+	foreach(sprites,function(sprite)
+		sprite:update()
+	end)
 end
 
 function draw_sprites()
 	clip(0,64,128,64)
-	for i=1,#sprites do
-		sprites[i]:draw_shadow()
-	end
+	foreach(sprites,function(sprite)
+		sprite:draw_shadow()
+	end)
 	clip()
-	for i=1,#sprites do
-		sprites[i]:draw()
-	end
+	foreach(sprites,function(sprite)
+		sprite:draw()
+	end)
 end
 
 function sort_sprites()
@@ -231,7 +231,7 @@ function player_init()
 
 	function self:collision()
 		self:collision_floor()
-		self:collision_map()
+		--self:collision_map()
 		--self:collision_sprites()
 	end
 
@@ -614,11 +614,16 @@ function world_init()
 	end
 	
 	function self:draw()
+		--draw sky
 		cls(1)
-		--rectfill(0,64,128,128,3)
-		--rectfill(0,64,128,128,14)
+
+		--draw ground
 		rectfill(0,64,128,128,2)
 		self:draw_lantern_light()
+
+		--draw moon
+		circfill(96,20,16,14)
+		circfill(96+5,20-5,16,1)
 	end
 
 	function self:draw_lantern_light()
