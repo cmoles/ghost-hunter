@@ -54,6 +54,19 @@ function game_draw()
 	draw_sprites()
 end
 
+function over_update()
+	if (btnp(🅾️)) then
+		_update=start_update
+		_draw=start_draw
+	end
+end
+
+function over_draw()
+	cls()
+	local message="game over"
+	print(message,64-(#message*8)/4,64,7)
+end
+
 function update_sprites()
 	for i=1,#sprites do
 		sprites[i]:update()
@@ -79,6 +92,10 @@ function sort_sprites()
 			end
 		end
 	end
+end
+
+function collision(a,b)
+	return a.x1<b.x2 and a.x2>b.x1 and a.y1<b.y2 and a.y2>b.y1
 end
 
 function zspr(frame,x,y,flip_x,flip_y)
@@ -108,9 +125,10 @@ max_speed_x=1.5*big_size/cell_size
 max_speed_y=.75*big_size/cell_size
 
 function player_init()
+	local x0,y0=64,64
 	local self={
-		x=64,
-		y=64,
+		x=x0,
+		y=y0,
 		dx=0,
 		dy=0,
 		turned=false,
@@ -124,6 +142,10 @@ function player_init()
 		hold_jump=0,
 		ready_jump=true,
 		go_jump=false,
+		x1=x0,
+		x2=x0+big_size,
+		y1=y0,
+		y2=y0+big_size*2,
 	}
 	
 	function self:update()
@@ -226,6 +248,14 @@ function player_init()
 		self.x+=self.dx
 		self.y+=self.dy
 		self.ty+=self.vy
+		self:update_bounds()
+	end
+
+	function self:update_bounds()
+		self.x1=self.x
+		self.x2=self.x+big_size
+		self.y1=self.y
+		self.y2=self.y+big_size*2
 	end
 
 	function self:animate()
@@ -297,6 +327,10 @@ function player_init()
 		draw_shadow_line(a,b,n,x,y)
 	end
 
+	function self:die()
+		_update=over_update
+		_draw=over_draw
+	end
 	
 	return self
 end
@@ -308,9 +342,11 @@ near=10*big_size/cell_size
 close=20*big_size/cell_size
 
 function ghost_init()
+	local x0=128-256*flr(rnd(2))
+	local y0=flr(rnd(32))
 	local self={
-		x=128-256*flr(rnd(2)),
-		y=flr(rnd(32)),
+		x=x0,
+		y=y0,
 		dx=0,
 		dy=0,
 		hover_p=0,
@@ -319,6 +355,10 @@ function ghost_init()
 		frame_head=33,
 		frame_body={49,50,49,51},
 		frame_body_index=1,
+		x1=x0,
+		x2=x0+big_size,
+		y1=y0,
+		y2=y0+big_size*2,
 	}
 
 	function self:update()
@@ -333,9 +373,18 @@ function ghost_init()
 
 	function self:move()
 		if abs(player.x-self.x)<near and abs(player.y-self.y)<near then
+			self.dx,self.dy=0,0
 		else
 			self:move_to_player()
 		end
+		self.x+=self.dx
+		self.y+=self.dy
+		if self.dx<0 then
+			self.turned=true
+		else
+			self.turned=false
+		end
+		self:update_bounds()
 	end
 
 	function self:move_to_player()
@@ -346,13 +395,13 @@ function ghost_init()
 		local angle=atan2(player.x-self.x,player.y-self.y)
 		self.dx=cos(angle)*a
 		self.dy=sin(angle)*a
-		self.x+=self.dx
-		self.y+=self.dy
-		if self.dx<0 then
-			self.turned=true
-		else
-			self.turned=false
-		end
+	end
+
+	function self:update_bounds()
+		self.x1=self.x
+		self.x2=self.x+big_size
+		self.y1=self.y
+		self.y2=self.y+big_size*2
 	end
 
 	function self:animate()
@@ -409,10 +458,10 @@ end
 
 skeleton_speed=0.8*big_size/cell_size
 
-function skeleton_init(x,y)
+function skeleton_init(x0,y0)
 	local self={
-		x=x,
-		y=y,
+		x=x0,
+		y=y0,
 		dx=0,
 		dy=0,
 		hover_p=0,
@@ -420,22 +469,20 @@ function skeleton_init(x,y)
 		turned=false,
 		frame_head=6,
 		frame_body=22,
+		x1=x0,
+		x2=x0+big_size,
+		y1=y0,
+		y2=y0+big_size*2,
 	}
 
 	function self:update()
 		self:move()
+		self:collision()
 		self:animate()
 	end
 
 	function self:move()
 		self:move_to_player()
-	end
-
-	function self:move_to_player()
-		local a=skeleton_speed
-		local angle=atan2(player.x-self.x,player.y-self.y)
-		self.dx=cos(angle)*a
-		self.dy=sin(angle)*a
 		self.x+=self.dx
 		self.y+=self.dy
 		if self.dx<0 then
@@ -443,6 +490,32 @@ function skeleton_init(x,y)
 		else
 			self.turned=false
 		end
+		self:update_bounds()
+	end
+
+	function self:move_to_player()
+		local a=skeleton_speed
+		local angle=atan2(player.x-self.x,player.y-self.y)
+		self.dx=cos(angle)*a
+		self.dy=sin(angle)*a
+	end
+
+	function self:update_bounds()
+		self.x1=self.x
+		self.x2=self.x+big_size
+		self.y1=self.y
+		self.y2=self.y+big_size*2
+	end
+
+	function self:collision()
+		if self:collide_with_player() then
+			--player:die()
+			self:die()
+		end
+	end
+
+	function self:collide_with_player()
+		return collision(self,player)
 	end
 
 	function self:animate()
@@ -484,6 +557,10 @@ function skeleton_init(x,y)
 		local x=self.x
 		local y=self.y+self.hover_y+big_size
 		zspr(self.frame_body,x,y)
+	end
+
+	function self:die()
+		del(sprites,self)
 	end
 	
 	return self
