@@ -60,9 +60,11 @@ function update_sprites()
 end
 
 function draw_sprites()
+	clip(0,64,128,64)
 	for i=1,#sprites do
 		sprites[i]:draw_shadow()
 	end
+	clip()
 	for i=1,#sprites do
 		sprites[i]:draw()
 	end
