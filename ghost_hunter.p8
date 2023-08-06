@@ -105,7 +105,7 @@ max_speed_x=1.5*big_size/cell_size
 max_speed_y=.75*big_size/cell_size
 
 function player_init()
-	self={
+	local self={
 		x=64,
 		y=64,
 		dx=0,
@@ -305,7 +305,7 @@ near=10*big_size/cell_size
 close=20*big_size/cell_size
 
 function ghost_init()
-	self={
+	local self={
 		x=128-256*flr(rnd(2)),
 		y=flr(rnd(32)),
 		dx=0,
@@ -407,7 +407,7 @@ end
 world={}
 
 function world_init()
-	self={}
+	local self={}
 	
 	function self:update()
 	end
