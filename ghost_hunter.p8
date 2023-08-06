@@ -22,8 +22,7 @@ function start_update()
 		player=player_init()
 		add(sprites,player)
 
-		ghost=ghost_init()
-		add(sprites,ghost)
+		add(sprites,ghost_init())
 
 		world=world_init()
 
@@ -45,10 +44,6 @@ function game_update()
 	end
 	update_sprites()
 	sort_sprites()
-	if (btnp(🅾️)) then
-		_update=start_update
-		_draw=start_draw
-	end
 end
 
 function game_draw()
@@ -65,6 +60,9 @@ function update_sprites()
 end
 
 function draw_sprites()
+	for i=1,#sprites do
+		sprites[i]:draw_shadow()
+	end
 	for i=1,#sprites do
 		sprites[i]:draw()
 	end
@@ -86,6 +84,16 @@ function zspr(frame,x,y,flip_x,flip_y)
 
 	sspr(sx,sy,cell_size,cell_size,x,y,big_size,big_size,flip_x,flip_y)
 end
+
+function draw_shadow_line(a,b,n,x,y)
+	for d=1,3 do
+		for j=1,a do
+			for k=1,a do
+				pset(x+n*b+d*a+j-a,y-d*a+k,0)
+			end
+		end
+	end
+end
 -->8
 --player
 
@@ -93,7 +101,8 @@ player={}
 player_speed=1*big_size/cell_size
 friction=0.8
 gravity=0.2*big_size/cell_size
-max_speed=1.5*big_size/cell_size
+max_speed_x=1.5*big_size/cell_size
+max_speed_y=.75*big_size/cell_size
 
 function player_init()
 	self={
@@ -106,7 +115,7 @@ function player_init()
 		frame_body_idle=17,
 		frame_body_walk={18, 17, 19},
 		frame_body_walk_index=1,
-		boost=-1.5*big_size/cell_size,
+		boost=-1.7*big_size/cell_size,
 		vy=0,
 		ty=0,
 		hold_jump=0,
@@ -168,17 +177,19 @@ function player_init()
 		if self.ty<0 then
 			self.vy+=gravity
 		end
-		local ms=max_speed
+		local mx=max_speed_x
+		local my=max_speed_y
 		if self.hold_jump>0 and not self.go_jump then
-			ms*=0.25
+			mx*=0.25
+			my*=0.25
 		end
-		if abs(self.dx)>ms then
+		if abs(self.dx)>mx then
 			local sign=abs(self.dx)/self.dx
-			self.dx=ms*sign
+			self.dx=mx*sign
 		end
-		if abs(self.dy)>ms then
+		if abs(self.dy)>my then
 			local sign=abs(self.dy)/self.dy
-			self.dy=ms*sign
+			self.dy=my*sign
 		end
 	end
 
@@ -254,13 +265,40 @@ function player_init()
 		local y=self.y+self.ty
 		zspr(self:get_frame_body(),self.x,y+big_size,self.turned)
 	end
+
+	function self:draw_shadow()
+		if self.ty<0 then
+			self:draw_shadow_line(-1)
+			self:draw_shadow_line(0)
+			self:draw_shadow_line(1)
+			--self:draw_shadow_circle()
+		end
+	end
+	function self:draw_shadow_circle()
+		if self.ty<0 then
+			local a=big_size/cell_size
+			local b=max(3,self.ty*a/self.boost)
+			local x=self.x+big_size/2
+			local y=self.y+big_size*2-a
+			--circfill(x,y,abs(self.ty)*a,5)
+			ovalfill(x-b,y-a,x+b,y+a,5)
+		end
+	end
+
+	function self:draw_shadow_line(n)
+		local a=big_size/cell_size
+		local b=mid(big_size/4,self.ty*a/self.boost,big_size/2)
+		local x=self.x+big_size/4
+		local y=self.y+2*(big_size)
+
+		draw_shadow_line(a,b,n,x,y)
+	end
+
 	
 	return self
 end
 -->8
 --ghost
-
-ghost={}
 
 ghost_speed=big_size/cell_size
 near=10*big_size/cell_size
@@ -268,11 +306,11 @@ close=20*big_size/cell_size
 
 function ghost_init()
 	self={
-		x=128,
-		y=32,
+		x=128-256*flr(rnd(2)),
+		y=flr(rnd(32)),
 		dx=0,
 		dy=0,
-		hover_x=0,
+		hover_p=0,
 		hover_y=0,
 		turned=false,
 		frame_head=33,
@@ -326,8 +364,8 @@ function ghost_init()
 			self.frame_body_index=1
 		end
 		local a=big_size/cell_size
-		self.hover_x=a*cos(tt/500)-a*10
-		self.hover_y=a*cos(tt/100)*2-a*10
+		self.hover_p=cos(tt/100)
+		self.hover_y=a*self.hover_p*2-a*10
 	end
 
 	function self:draw_head()
@@ -342,8 +380,23 @@ function ghost_init()
 
 
 	function self:draw_body()
+		local x=self.x
 		local y=self.y+self.hover_y+big_size
-		zspr(self:get_frame_body(),self.x,y,self.turned)
+		zspr(self:get_frame_body(),x,y,self.turned)
+	end
+
+	function self:draw_shadow()
+		self:draw_shadow_line(0)
+		self:draw_shadow_line(1)
+		self:draw_shadow_line(2)
+	end
+
+	function self:draw_shadow_line(n)
+		local a=big_size/cell_size
+		local b=big_size/4
+		local x=self.x-big_size/8
+		local y=self.y+2*(big_size)
+		draw_shadow_line(a,b,n,x,y)
 	end
 
 	return self
@@ -361,9 +414,7 @@ function world_init()
 	
 	function self:draw()
 		cls(1)
-		local horizon=64/big_size
-		--rectfill(0,horizon*cell_size,128,128,13)
-		rectfill(0,horizon*cell_size,128,128,3)
+		rectfill(0,64,128,128,3)
 	end
 	
 	return self
