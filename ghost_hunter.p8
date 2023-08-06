@@ -388,15 +388,15 @@ function ghost_init()
 	end
 
 	function self:draw_shadow()
+		self:draw_shadow_line(-1)
 		self:draw_shadow_line(0)
 		self:draw_shadow_line(1)
-		self:draw_shadow_line(2)
 	end
 
 	function self:draw_shadow_line(n)
 		local a=big_size/cell_size
 		local b=big_size/4
-		local x=self.x-big_size/8
+		local x=self.x+big_size/4
 		local y=self.y+2*(big_size)
 		draw_shadow_line(a,b,n,x,y)
 	end
