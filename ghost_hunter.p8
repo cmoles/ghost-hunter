@@ -212,7 +212,7 @@ function player_init()
 		end
 
 		if self.hold_jump>0 and self.go_jump then
-			local a=mid(.2,self.hold_jump/10,1)
+			local a=mid(.5,self.hold_jump/5,1.2)
 			self.vy=a*self.boost
 			self.ready_jump=false
 			self.hold_jump=0
