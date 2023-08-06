@@ -687,11 +687,13 @@ function world_init()
 	end
 
 	function self:draw_lantern_light()
-		local x=player.x+big_size
-		local y=player.y+big_size
-		local r=big_size*3
+		local x=player.x
+		local y=player.y+big_size+player.ty/4
+		local r=big_size*3-player.ty
 		if player.turned then
-			x-=big_size*4+1
+			x-=big_size*3+1-player.ty
+		else
+			x+=big_size
 		end
 		clip(0,64,128,64)
 		ovalfill(x,y,x+r,y+r/2,14)
