@@ -22,13 +22,11 @@ function start_update()
 
 		world=world_init()
 
-		local grave=world.graves[1]
-
 		player=player_init()
 		add(sprites,player)
 
 		add(sprites,ghost_init())
-		add(sprites,skeleton_init(grave.x,grave.y))
+		init_skeleton()
 
 		_update=game_update
 		_draw=game_draw
@@ -69,6 +67,11 @@ function over_draw()
 	cls()
 	local message="game over"
 	print(message,64-(#message*8)/4,64,7)
+end
+
+function init_skeleton()
+	local grave=world.graves[1]
+	add(sprites,skeleton_init(grave.x,grave.y))
 end
 
 function update_sprites()
@@ -515,8 +518,8 @@ function skeleton_init(x0,y0)
 		frame_body=22,
 		x1=x0,
 		x2=x0+big_size,
-		y1=y0,
-		y2=y0+big_size*2,
+		y1=y0+big_size*2-scalar,
+		y2=y0+big_size*2+scalar,
 		buried=true,
 	}
 
@@ -527,7 +530,11 @@ function skeleton_init(x0,y0)
 	end
 
 	function self:move()
-		--self:move_to_player()
+		if self.buried then
+			self.dx,self.dy=0,0
+		else
+			self:move_to_player()
+		end
 		self.x+=self.dx
 		self.y+=self.dy
 		if self.dx<0 then
@@ -555,7 +562,11 @@ function skeleton_init(x0,y0)
 	function self:collision()
 		if self:collide_with_player() then
 			--player:die()
-			self:die()
+			if not self.buried then
+				self:die()
+			end
+		elseif self.buried then
+			self.buried=false
 		end
 	end
 
@@ -582,9 +593,9 @@ function skeleton_init(x0,y0)
 	end
 
 	function self:draw_shadow()
-		--self:draw_shadow_line(-1)
-		--self:draw_shadow_line(0)
-		--self:draw_shadow_line(1)
+		self:draw_shadow_line(-1)
+		self:draw_shadow_line(0)
+		self:draw_shadow_line(1)
 	end
 
 	function self:draw_shadow_line(n)
@@ -598,17 +609,18 @@ function skeleton_init(x0,y0)
 	function self:draw_head()
 		local x=self.x
 		local y=self.y+self.hover_y
-		zspr(self.frame_head,x,y)
+		zspr(self.frame_head,x,y,self.turned)
 	end
 
 	function self:draw_body()
 		local x=self.x
 		local y=self.y+self.hover_y+big_size
-		zspr(self.frame_body,x,y)
+		zspr(self.frame_body,x,y,self.turned)
 	end
 
 	function self:die()
 		del(sprites,self)
+		init_skeleton()
 	end
 	
 	return self
@@ -622,7 +634,7 @@ moon_x=96
 moon_y=20
 moon_r=16
 num_stars=100
-num_clouds=5
+num_clouds=2
 cloud_div=(128+32)/num_clouds
 
 function world_init()
