@@ -68,7 +68,7 @@ function over_draw()
 end
 
 function init_skeleton()
-	local grave=world.graves[1]
+	local grave=rnd(world.graves)
 	add(sprites,skeleton_new(grave.x,grave.y))
 end
 
@@ -156,7 +156,7 @@ max_speed_x=1.5*scalar
 max_speed_y=.85*scalar
 
 function player_new()
-	local x0,y0=40,96
+	local x0,y0=47,90
 	local self={
 		type="player",
 		x=x0,
@@ -836,26 +836,19 @@ num_stars=100
 num_clouds=2
 cloud_div=(128+32)/num_clouds
 num_grave_cols=12
-num_grave_rows=5
+num_grave_rows=6
 
 function world_init()
 	local self={
 		stars={},
 		clouds={},
-		graves={
-			--[[{
-				f=rnd({10,11,12,13}),
-				x=flr(rnd(32))+64,
-				y=flr(rnd(32))+64,
-				d=rnd({26,27,28,29}),
-			}]]
-		},
+		graves={},
 	}
 
 	for j=0,num_grave_cols do
-		for k=0,num_grave_rows do
+		for k=0,num_grave_rows-1 do
 			local x=12*j*scalar
-			local y=60*scalar+12*k*scalar
+			local y=50+12*k*scalar
 			local f=rnd({10,11,12,13})
 			local d=rnd({26,27,28,29})
 			if j==4 or k==3 then
@@ -866,10 +859,17 @@ function world_init()
 					x=x,
 					y=y,
 					d=d,
+					update=update_grave,
+					draw=draw_grave,
+					draw_shadow=draw_grave_shadow,
 				})
 			end
 		end
 	end
+
+	foreach(self.graves,function(g)
+		add(sprites,g)
+	end)
 
 	for i=1,num_clouds do
 		local cx=rnd(cloud_div/num_clouds)
@@ -917,7 +917,7 @@ function world_init()
 		self:draw_stars()
 		self:draw_clouds()
 
-		self:draw_cemetary()
+		--self:draw_cemetary()
 	end
 
 	function self:draw_lantern_light()
@@ -932,10 +932,6 @@ function world_init()
 		clip(0,64,128,64)
 		ovalfill(x,y,x+r,y+r/2,14)
 		clip()
-	end
-
-	function self:draw_cemetary()
-		foreach(self.graves,draw_grave)
 	end
 
 	function self:update_clouds()
@@ -953,11 +949,15 @@ function world_init()
 	return self
 end
 
+function update_grave(g)
+end
+function draw_grave_shadow(g)
+	zspr(g.d,g.x,g.y+big_size*2)
+end
 function draw_grave(g)
 	local x=g.x
 	local y=g.y
-	zspr(g.f,x,y)
-	zspr(g.d,x,y+big_size)
+	zspr(g.f,g.x,g.y+big_size)
 end
 
 function update_cloud(c)
