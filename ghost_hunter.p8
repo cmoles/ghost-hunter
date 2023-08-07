@@ -142,11 +142,7 @@ function draw_shadow_line(a,b,n,x,y)
 end
 
 function inc_tt(t0)
-	local t1=t0+1
-	if t1>1 then
-		t0=0
-	end
-	return t1
+	return max(0,t0+1)
 end
 -->8
 --player
@@ -368,17 +364,6 @@ function player_init()
 			self:draw_shadow_line(-1)
 			self:draw_shadow_line(0)
 			self:draw_shadow_line(1)
-			--self:draw_shadow_circle()
-		end
-	end
-	function self:draw_shadow_circle()
-		if self.ty<0 then
-			local a=scalar
-			local b=max(3,self.ty*a/self.boost)
-			local x=self.x+big_size/2
-			local y=self.y+big_size*2-a
-			--circfill(x,y,abs(self.ty)*a,5)
-			ovalfill(x-b,y-a,x+b,y+a,5)
 		end
 	end
 
@@ -452,7 +437,7 @@ function ghost_init()
 		self.y+=self.dy
 		if self.dx<0 then
 			self.turned=true
-		else
+		elseif self.dx>0 then
 			self.turned=false
 		end
 		self:update_bounds()
@@ -464,6 +449,13 @@ function ghost_init()
 			a=ghost_speed/4
 		elseif self.dist<close then
 			a=ghost_speed/2
+		end
+		local px=near
+		local py=player.y+big_size
+		if player.turned then
+			px=player.x+big_size
+		else
+			px=player.x
 		end
 		local angle=atan2(player.x-self.x,player.y-self.y)
 		self.dx=cos(angle)*a
@@ -537,6 +529,9 @@ end
 skeleton_crawl_speed=0.5*scalar
 skeleton_float_speed=0.3*scalar
 skeleton_crawl_distance=big_size*20
+skeleton_crawl_frequency=50
+skeleton_hover_frequency=100
+rise_length=20
 
 function skeleton_init(x0,y0)
 	local self={
@@ -556,7 +551,8 @@ function skeleton_init(x0,y0)
 		y1=y0+big_size*2-scalar,
 		y2=y0+big_size*2+scalar,
 		buried=true,
-		crawl=false,
+		crawl=true,
+		rise=0,
 	}
 
 	function self:update()
@@ -569,16 +565,18 @@ function skeleton_init(x0,y0)
 	function self:move()
 		if self.buried then
 			self.dx,self.dy=0,0
-		elseif self.crawl then
+		elseif not self.crawl then
+			self:float_to_player()
+		elseif self.rise<=0 then
 			self:crawl_to_player()
 		else
-			self:float_to_player()
+			self.dx,self.dy=0,0
 		end
 		self.x+=self.dx
 		self.y+=self.dy
 		if self.dx<0 then
 			self.turned=true
-		else
+		elseif self.dx>0 then
 			self.turned=false
 		end
 		self:update_bounds()
@@ -606,21 +604,26 @@ function skeleton_init(x0,y0)
 	end
 
 	function self:collision()
-		if self:collide_with_player() then
+		self.dist=distance(self,player)
+		if self.buried then
+			if self.dist>close then
+				self.buried=false
+			end
+		elseif self:collide_with_player() then
 			if not self.buried then
 				--player:die()
 				self:die()
 			end
-		elseif self.buried then
-			self.buried=false
-			self.crawl=true
-		else
-			self.dist=distance(self,player)
-			if self.dist<near then
+		elseif self.dist<near then
+			self.rise=min(self.rise+1,rise_length)
+			if self.rise==rise_length then
 				self.crawl=false
 			else
 				self.crawl=true
 			end
+		elseif self.dist>close then
+			self.crawl=true
+			self.rise=max(0,self.rise-2)
 		end
 	end
 
@@ -638,7 +641,8 @@ function skeleton_init(x0,y0)
 
 	function self:animate_body()
 		local a=scalar
-		self.hover_p=cos(self.tt/100)
+		local shf=skeleton_hover_frequency
+		self.hover_p=cos(self.tt/shf)
 		self.hover_y=a*self.hover_p*2-a*3
 		self.hover_y=a*self.hover_p*2-a*3
 	end
@@ -655,9 +659,13 @@ function skeleton_init(x0,y0)
 	end
 
 	function self:draw_shadow()
-		self:draw_shadow_line(-1)
-		self:draw_shadow_line(0)
-		self:draw_shadow_line(1)
+		if self.buried then
+		elseif self.crawl then
+		else
+			self:draw_shadow_line(-1)
+			self:draw_shadow_line(0)
+			self:draw_shadow_line(1)
+		end
 	end
 
 	function self:draw_shadow_line(n)
@@ -677,6 +685,21 @@ function skeleton_init(x0,y0)
 	function self:draw_crawl_head()
 		local x=self.x
 		local y=self.y+big_size
+		if self.rise>0 then
+			local r=min(rise_length/2,self.rise)
+			local f=rise_length*4
+			local d=sin(r/f)*big_size/2
+			if self.turned then
+				x-=d
+				y+=d
+			else
+				x+=d
+				y+=d
+			end
+		else
+			local scf=skeleton_crawl_frequency
+			x+=cos(self.tt/scf)*scalar
+		end
 		zspr(self.frame_head,x,y,self.turned)
 	end
 
@@ -689,12 +712,26 @@ function skeleton_init(x0,y0)
 	function self:draw_crawl_body()
 		local x=self.x
 		local y=self.y+big_size+scalar*2
-		if self.turned then
-			x=x+big_size
+		local frame
+		if self.rise>rise_length/2 then
+			frame=self.frame_float_body
+			if self.turned then
+				x+=big_size/2-scalar
+			else
+				x-=big_size/2-scalar*2
+			end
+			y+=scalar*3
 		else
-			x=x-big_size
+			frame=self.frame_crawl_body
+			if self.turned then
+				x+=big_size
+			else
+				x-=big_size
+			end
+			local scf=skeleton_crawl_frequency
+			x-=cos(self.tt/scf)*scalar
 		end
-		zspr(self.frame_crawl_body,x,y,self.turned)
+		zspr(frame,x,y,self.turned)
 	end
 
 	function self:die()
