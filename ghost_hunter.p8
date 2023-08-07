@@ -643,6 +643,9 @@ function skeleton_init(x0,y0)
 			end
 			self.nrise=min(self.nrise+1,rise_length)
 			if self.nrise==rise_length then
+				if self:rise() then
+					self.tt=0
+				end
 				self.state="float"
 			end
 		elseif self:float() and self.dist>close then
@@ -659,10 +662,6 @@ function skeleton_init(x0,y0)
 		return collision(self,player)
 	end
 
-	function self:near_player()
-		return distance(self,player)<near
-	end
-
 	function self:animate()
 		self:animate_body()
 	end
@@ -674,7 +673,6 @@ function skeleton_init(x0,y0)
 		local shd=skeleton_hover_disp
 		self.hover_p=cos(self.tt/shf)
 		self.hover_y=a*self.hover_p*sha-a*shd
-		self.hover_y=a*self.hover_p*sha-a*shd
 	end
 
 	function self:draw()
@@ -683,8 +681,8 @@ function skeleton_init(x0,y0)
 			self:draw_crawl_body()
 			self:draw_crawl_head()
 		elseif self:rise() then
-			self:draw_crawl_body()
-			self:draw_crawl_head()
+			self:draw_rise_body()
+			self:draw_rise_head()
 		else
 			self:draw_float_body()
 			self:draw_float_head()
@@ -716,41 +714,36 @@ function skeleton_init(x0,y0)
 	function self:draw_crawl_head()
 		local x=self.x
 		local y=self.y+big_size
-		if self.nrise>0 then
-			local r=min(rise_length/2,self.nrise)
-			local f=rise_length*4
-			local d=sin(r/f)*big_size/2
-			if self.turned then
-				x-=d
-				y+=d
-			else
-				x+=d
-				y+=d
-			end
-			if self.nrise>r then
-				local shd=skeleton_hover_disp
-				local rd=rise_length-self.nrise
-				local rt=cos(rd/f*2)*shd
-				y-=rt
-			end
+		local scf=skeleton_crawl_frequency
+		x+=cos(self.tt/scf)*scalar
+		zspr(self.frame_head,x,y,self.turned)
+	end
 
+	function self:draw_rise_head()
+		local x=self.x
+		local y=self.y+big_size
+		local r=min(rise_length/2,self.nrise)
+		local f=rise_length*4
+		local d=sin(r/f)*big_size/2
+		if self.turned then
+			x-=d
+			y+=d
 		else
-			local scf=skeleton_crawl_frequency
-			x+=cos(self.tt/scf)*scalar
+			x+=d
+			y+=d
+		end
+		if self.nrise>r then
+			local shd=-self.hover_y
+			local rd=rise_length-self.nrise
+			local rt=cos(rd/f*2)*shd
+			y-=rt
 		end
 		zspr(self.frame_head,x,y,self.turned)
 	end
 
-	function self:draw_float_body()
-		local x=self.x
-		local y=self.y+self.hover_y+big_size
-		zspr(self.frame_float_body,x,y,self.turned)
-	end
-
-	function self:draw_crawl_body()
+	function self:draw_rise_body()
 		local x=self.x
 		local y=self.y+big_size+scalar*2
-		local frame
 		if self.nrise>rise_length/2 then
 			frame=self.frame_float_body
 			if self.turned then
@@ -774,6 +767,27 @@ function skeleton_init(x0,y0)
 			local scf=skeleton_crawl_frequency
 			x-=cos(self.tt/scf)*scalar
 		end
+		zspr(frame,x,y,self.turned)
+	end
+
+	function self:draw_float_body()
+		local x=self.x
+		local y=self.y+self.hover_y+big_size
+		zspr(self.frame_float_body,x,y,self.turned)
+	end
+
+	function self:draw_crawl_body()
+		local x=self.x
+		local y=self.y+big_size+scalar*2
+		local frame
+		frame=self.frame_crawl_body
+		if self.turned then
+			x+=big_size
+		else
+			x-=big_size
+		end
+		local scf=skeleton_crawl_frequency
+		x-=cos(self.tt/scf)*scalar
 		zspr(frame,x,y,self.turned)
 	end
 
