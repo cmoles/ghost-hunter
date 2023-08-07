@@ -40,10 +40,7 @@ function start_draw()
 end
 
 function game_update()
-	tt+=1
-	if tt<0 then
-		tt=0
-	end
+	tt=inc_tt(tt)
 	update_sprites()
 	sort_sprites()
 	world:update()
@@ -105,6 +102,16 @@ function collision(a,b)
 	return a.x1<b.x2 and a.x2>b.x1 and a.y1<b.y2 and a.y2>b.y1
 end
 
+function distance(a,b)
+	local ax=(a.x1+a.x2)/2
+	local ay=(a.y1+a.y2)/2
+	local bx=(b.x1+b.x2)/2
+	local by=(b.y1+b.y2)/2
+	local dx=bx-ax
+	local dy=by-ay
+	return sqrt(dx*dx+dy*dy)
+end
+
 function zspr(frame,x,y,flip_x,flip_y)
 	local sx=flr(frame%row_size)*cell_size
 	local sy=flr(frame/row_size)*cell_size
@@ -133,6 +140,14 @@ function draw_shadow_line(a,b,n,x,y)
 		end
 	end
 end
+
+function inc_tt(t0)
+	local t1=t0+1
+	if t1>1 then
+		t0=0
+	end
+	return t1
+end
 -->8
 --player
 
@@ -150,6 +165,7 @@ function player_init()
 		y=y0,
 		dx=0,
 		dy=0,
+		tt=0,
 		turned=false,
 		frame_head=1,
 		frame_body_idle=17,
@@ -169,6 +185,7 @@ function player_init()
 	}
 	
 	function self:update()
+		self.tt=inc_tt(self.tt)
 		self:get_input()
 		self:collision()
 		self:move()
@@ -290,7 +307,7 @@ function player_init()
 		if self.dx==0 and self.dy==0 then
 			self.frame_body_walk_index=1
 		else
-			if tt%4==0 then
+			if self.tt%4==0 then
 				self.frame_body_walk_index+=1
 			end
 			if self.frame_body_walk_index>#self.frame_body_walk then
@@ -385,8 +402,11 @@ end
 --ghost
 
 ghost_speed=scalar
-near=10*scalar
-close=20*scalar
+ghost_float_freq=1/100
+ghost_float_amp=2
+ghost_float_disp=10
+near=2*big_size
+close=5*big_size
 
 function ghost_init()
 	local x0=128-256*flr(rnd(2))
@@ -396,6 +416,8 @@ function ghost_init()
 		y=y0,
 		dx=0,
 		dy=0,
+		tt=0,
+		dist=128,
 		hover_p=0,
 		hover_y=0,
 		turned=false,
@@ -409,6 +431,7 @@ function ghost_init()
 	}
 
 	function self:update()
+		self.tt=inc_tt(self.tt)
 		self:move()
 		self:animate()
 	end
@@ -419,7 +442,8 @@ function ghost_init()
 	end
 
 	function self:move()
-		if abs(player.x-self.x)<near and abs(player.y-self.y)<near then
+		self.dist=distance(self,player)
+		if self.dist<near then
 			self.dx,self.dy=0,0
 		else
 			self:move_to_player()
@@ -436,12 +460,14 @@ function ghost_init()
 
 	function self:move_to_player()
 		local a=ghost_speed
-		if abs(player.x-self.x)<close and abs(player.y-self.y)<close then
+		if self.dist<near then
+			a=ghost_speed/4
+		elseif self.dist<close then
 			a=ghost_speed/2
 		end
 		local angle=atan2(player.x-self.x,player.y-self.y)
 		self.dx=cos(angle)*a
-		self.dy=sin(angle)*a
+		self.dy=sin(angle)*a/2
 	end
 
 	function self:update_bounds()
@@ -456,15 +482,15 @@ function ghost_init()
 	end
 
 	function self:animate_body()
-		if tt%4==0 then
+		if self.tt%4==0 then
 			self.frame_body_index+=1
 		end
 		if self.frame_body_index>#self.frame_body then
 			self.frame_body_index=1
 		end
 		local a=scalar
-		self.hover_p=cos(tt/100)
-		self.hover_y=a*self.hover_p*2-a*10
+		self.hover_p=cos(self.tt*ghost_float_freq)
+		self.hover_y=a*self.hover_p*ghost_float_amp-a*ghost_float_disp
 	end
 
 	function self:draw_head()
@@ -477,6 +503,11 @@ function ghost_init()
 		return self.frame_body[self.frame_body_index]
 	end
 
+	function self:draw_float_body()
+		local x=self.x
+		local y=self.y+self.hover_y+big_size
+		zspr(self:get_frame_body(),x,y,self.turned)
+	end
 
 	function self:draw_body()
 		local x=self.x
@@ -503,7 +534,9 @@ end
 -->8
 --skeleton
 
-skeleton_speed=0.5*scalar
+skeleton_crawl_speed=0.5*scalar
+skeleton_float_speed=0.3*scalar
+skeleton_crawl_distance=big_size*20
 
 function skeleton_init(x0,y0)
 	local self={
@@ -511,19 +544,23 @@ function skeleton_init(x0,y0)
 		y=y0,
 		dx=0,
 		dy=0,
+		tt=0,
 		hover_p=0,
 		hover_y=0,
 		turned=false,
 		frame_head=6,
-		frame_body=22,
+		frame_crawl_body=23,
+		frame_float_body=22,
 		x1=x0,
 		x2=x0+big_size,
 		y1=y0+big_size*2-scalar,
 		y2=y0+big_size*2+scalar,
 		buried=true,
+		crawl=false,
 	}
 
 	function self:update()
+		self.tt=inc_tt(self.tt)
 		self:move()
 		self:collision()
 		self:animate()
@@ -532,8 +569,10 @@ function skeleton_init(x0,y0)
 	function self:move()
 		if self.buried then
 			self.dx,self.dy=0,0
+		elseif self.crawl then
+			self:crawl_to_player()
 		else
-			self:move_to_player()
+			self:float_to_player()
 		end
 		self.x+=self.dx
 		self.y+=self.dy
@@ -545,8 +584,15 @@ function skeleton_init(x0,y0)
 		self:update_bounds()
 	end
 
-	function self:move_to_player()
-		local a=skeleton_speed
+	function self:crawl_to_player()
+		local a=skeleton_crawl_speed
+		local angle=atan2(player.x-self.x,player.y-self.y)
+		self.dx=cos(angle)*a
+		self.dy=sin(angle)*a
+	end
+
+	function self:float_to_player()
+		local a=skeleton_float_speed
 		local angle=atan2(player.x-self.x,player.y-self.y)
 		self.dx=cos(angle)*a
 		self.dy=sin(angle)*a
@@ -561,17 +607,29 @@ function skeleton_init(x0,y0)
 
 	function self:collision()
 		if self:collide_with_player() then
-			--player:die()
 			if not self.buried then
+				--player:die()
 				self:die()
 			end
 		elseif self.buried then
 			self.buried=false
+			self.crawl=true
+		else
+			self.dist=distance(self,player)
+			if self.dist<near then
+				self.crawl=false
+			else
+				self.crawl=true
+			end
 		end
 	end
 
 	function self:collide_with_player()
 		return collision(self,player)
+	end
+
+	function self:near_player()
+		return distance(self,player)<near
 	end
 
 	function self:animate()
@@ -580,15 +638,19 @@ function skeleton_init(x0,y0)
 
 	function self:animate_body()
 		local a=scalar
-		self.hover_p=cos(tt/100)
+		self.hover_p=cos(self.tt/100)
 		self.hover_y=a*self.hover_p*2-a*3
 		self.hover_y=a*self.hover_p*2-a*3
 	end
 
 	function self:draw()
-		if not self.buried then
-			self:draw_body()
-			self:draw_head()
+		if self.buried then
+		elseif self.crawl then
+			self:draw_crawl_body()
+			self:draw_crawl_head()
+		else
+			self:draw_float_body()
+			self:draw_float_head()
 		end
 	end
 
@@ -606,16 +668,33 @@ function skeleton_init(x0,y0)
 		draw_shadow_line(a,b,n,x,y)
 	end
 
-	function self:draw_head()
+	function self:draw_float_head()
 		local x=self.x
 		local y=self.y+self.hover_y
 		zspr(self.frame_head,x,y,self.turned)
 	end
 
-	function self:draw_body()
+	function self:draw_crawl_head()
+		local x=self.x
+		local y=self.y+big_size
+		zspr(self.frame_head,x,y,self.turned)
+	end
+
+	function self:draw_float_body()
 		local x=self.x
 		local y=self.y+self.hover_y+big_size
-		zspr(self.frame_body,x,y,self.turned)
+		zspr(self.frame_float_body,x,y,self.turned)
+	end
+
+	function self:draw_crawl_body()
+		local x=self.x
+		local y=self.y+big_size+scalar*2
+		if self.turned then
+			x=x+big_size
+		else
+			x=x-big_size
+		end
+		zspr(self.frame_crawl_body,x,y,self.turned)
 	end
 
 	function self:die()
@@ -771,14 +850,14 @@ __gfx__
 00700700aaff0fffaaff0fffaaff0fff998aaa890000000096666669000000000000000000000000955005590000000000000000000000000000000000000000
 00000000aaeffff9aaeffff9aaeffff9998aaa890000000099696969000000000000000000000000955555590000000000000000000000000000000000000000
 00000000aafeef99aafeef99aafeef99998888890000000099999999000000000000000000000000955555590000000000000000000000000000000000000000
-0000000078ffff8978ffff8978ffff89999999990000000096666669000000000000000000000000944944490000000000000000000000000000000000000000
-00000000787777897877778978777789999999990000000099969999000000000000000000000000449444490000000000000000000000000000000000000000
-00000000f8888889f8888889f8888889999999990000000099666699000000000000000000000000444444940000000000000000000000000000000000000000
-00000000988888899888888998888889999999990000000099969999000000000000000000000000444044440000000000000000000000000000000000000000
-00000000988898899ff9988998889ff9999999990000000099666999000000000000000000000000444449490000000000000000000000000000000000000000
-000000009ff99ff99aaa9ff99ff99aaa999999990000000099969999000000000000000000000000949444490000000000000000000000000000000000000000
-000000009aaa9aaa99999aaa9aaa9999999999990000000099999999000000000000000000000000444440490000000000000000000000000000000000000000
-00000000999999999999999999999999999999990000000099999999000000000000000000000000944494490000000000000000000000000000000000000000
+0000000078ffff8978ffff8978ffff89999999990000000096666669999999990000000000000000944944490000000000000000000000000000000000000000
+00000000787777897877778978777789999999990000000099969999999999960000000000000000449444490000000000000000000000000000000000000000
+00000000f8888889f8888889f8888889999999990000000099666699999696960000000000000000444444940000000000000000000000000000000000000000
+00000000988888899888888998888889999999990000000099969999996666660000000000000000444044440000000000000000000000000000000000000000
+00000000988898899ff9988998889ff9999999990000000099666999999696960000000000000000444449490000000000000000000000000000000000000000
+000000009ff99ff99aaa9ff99ff99aaa999999990000000099969999999996960000000000000000949444490000000000000000000000000000000000000000
+000000009aaa9aaa99999aaa9aaa9999999999990000000099999999999999960000000000000000444440490000000000000000000000000000000000000000
+00000000999999999999999999999999999999990000000099999999999999990000000000000000944494490000000000000000000000000000000000000000
 00000000999999999999999999999999999999990000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000999999999999999999999999999999990000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000999777999997779999977799999999990000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
