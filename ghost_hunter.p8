@@ -22,10 +22,11 @@ function start_update()
 
 		world=world_init()
 
-		player=player_init()
+		player=player_new()
+		player:init()
 		add(sprites,player)
 
-		add(sprites,ghost_init())
+		add(sprites,ghost_new())
 		init_skeleton()
 
 		_update=game_update
@@ -68,7 +69,7 @@ end
 
 function init_skeleton()
 	local grave=world.graves[1]
-	add(sprites,skeleton_init(grave.x,grave.y))
+	add(sprites,skeleton_new(grave.x,grave.y))
 end
 
 function update_sprites()
@@ -154,9 +155,10 @@ gravity=0.2*scalar
 max_speed_x=1.5*scalar
 max_speed_y=.85*scalar
 
-function player_init()
+function player_new()
 	local x0,y0=64,64
 	local self={
+		type="player",
 		x=x0,
 		y=y0,
 		dx=0,
@@ -174,11 +176,12 @@ function player_init()
 		hold_jump=0,
 		ready_jump=true,
 		go_jump=false,
-		x1=x0,
-		x2=x0+big_size,
-		y1=y0+big_size*2-scalar,
-		y2=y0+big_size*2+scalar,
 	}
+
+	function self:init()
+		self:update_bounds()
+		self:update_behind()
+	end
 	
 	function self:update()
 		self.tt=inc_tt(self.tt)
@@ -283,6 +286,7 @@ function player_init()
 		self.y+=self.dy
 		self.ty+=self.vy
 		self:update_bounds()
+		self:update_behind()
 	end
 
 	function self:update_bounds()
@@ -290,6 +294,27 @@ function player_init()
 		self.x2=self.x+big_size
 		self.y1=self.y+big_size*2-scalar
 		self.y2=self.y+big_size*2+scalar
+	end
+
+	function self:update_behind()
+		if self.turned then
+			self.behind={
+				x1=self.x1+big_size*2,
+				x2=self.x2+big_size*2,
+				y1=self.y1-big_size,
+				y2=self.y2-big_size,
+			}
+		else
+			self.behind={
+				x1=self.x1-big_size*2,
+				x2=self.x2-big_size*2,
+				y1=self.y1-big_size,
+				y2=self.y2-big_size,
+			}
+		end
+		local sb=self.behind
+		self.behind.x=(sb.x1+sb.x2)/2
+		self.behind.y=(sb.y1+sb.y2)/2
 	end
 
 	function self:animate()
@@ -390,13 +415,17 @@ ghost_speed=scalar
 ghost_float_freq=1/100
 ghost_float_amp=2
 ghost_float_disp=10
-ghost_near=2*big_size
+ghost_near=big_size/4
 ghost_close=5*big_size
 
-function ghost_init()
-	local x0=128-256*flr(rnd(2))
+function ghost_new()
+	local x0=128
+	if rnd(1)<.5 then
+		x0=-big_size
+	end
 	local y0=flr(rnd(32))
 	local self={
+		type="ghost",
 		x=x0,
 		y=y0,
 		dx=0,
@@ -427,7 +456,7 @@ function ghost_init()
 	end
 
 	function self:move()
-		self.dist=distance(self,player)
+		self.dist=distance(self,player.behind)
 		if self.dist<ghost_near then
 			self.dx,self.dy=0,0
 		else
@@ -450,14 +479,10 @@ function ghost_init()
 		elseif self.dist<ghost_close then
 			a=ghost_speed/2
 		end
-		local px=ghost_near
-		local py=player.y+big_size
-		if player.turned then
-			px=player.x+big_size
-		else
-			px=player.x
-		end
-		local angle=atan2(player.x-self.x,player.y-self.y)
+		local p=player.behind
+		local sx=(self.x1+self.x2)/2
+		local sy=(self.y1+self.y2)/2
+		local angle=atan2(p.x-sx,p.y-sy)
 		self.dx=cos(angle)*a
 		self.dy=sin(angle)*a/2
 	end
@@ -537,8 +562,9 @@ rise_length=20
 skeleton_near=3*big_size
 skeleton_close=5*big_size
 
-function skeleton_init(x0,y0)
+function skeleton_new(x0,y0)
 	local self={
+		type="skeleton",
 		x=x0,
 		y=y0,
 		dx=0,
