@@ -156,7 +156,7 @@ max_speed_x=1.5*scalar
 max_speed_y=.85*scalar
 
 function player_new()
-	local x0,y0=64,64
+	local x0,y0=40,96
 	local self={
 		type="player",
 		x=x0,
@@ -835,20 +835,41 @@ moon_r=16
 num_stars=100
 num_clouds=2
 cloud_div=(128+32)/num_clouds
+num_grave_cols=12
+num_grave_rows=5
 
 function world_init()
 	local self={
 		stars={},
 		clouds={},
 		graves={
-			{
+			--[[{
 				f=rnd({10,11,12,13}),
 				x=flr(rnd(32))+64,
 				y=flr(rnd(32))+64,
 				d=rnd({26,27,28,29}),
-			}
+			}]]
 		},
 	}
+
+	for j=0,num_grave_cols do
+		for k=0,num_grave_rows do
+			local x=12*j*scalar
+			local y=60*scalar+12*k*scalar
+			local f=rnd({10,11,12,13})
+			local d=rnd({26,27,28,29})
+			if j==4 or k==3 then
+			elseif rnd(1)<0.2 then
+			else
+				add(self.graves,{
+					f=f,
+					x=x,
+					y=y,
+					d=d,
+				})
+			end
+		end
+	end
 
 	for i=1,num_clouds do
 		local cx=rnd(cloud_div/num_clouds)
