@@ -851,8 +851,8 @@ function world_init()
 			local y=50+12*k*scalar
 			local f=rnd({10,11,12,13})
 			local d=rnd({26,27,28,29})
-			if j==4 or k==3 then
-			elseif rnd(1)<0.2 then
+			if on_path(j,k) then
+			elseif rnd(1)<0.3 then
 			else
 				add(self.graves,{
 					f=f,
@@ -947,6 +947,22 @@ function world_init()
 	end
 
 	return self
+end
+
+path_cols={4}
+path_rows={3}
+function on_path(j,k)
+	for x in all(path_cols) do
+		if j==x then
+			return true
+		end
+	end
+	for x in all(path_cols) do
+		if k==x then
+			return true
+		end
+	end
+	return false
 end
 
 function update_grave(g)
