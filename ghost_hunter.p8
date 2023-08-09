@@ -149,8 +149,8 @@ end
 --player
 
 player={}
-player_speed=1*scalar
-friction=0.8
+player_speed=.25*scalar
+friction=0.85
 gravity=0.2*scalar
 max_speed_x=1.5*scalar
 max_speed_y=.85*scalar
