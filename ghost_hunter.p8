@@ -20,7 +20,7 @@ function start_update()
 		tt=0
 		sprites={}
 
-		world=world_init()
+		cemetary=cemetary_init()
 
 		player=player_new()
 		player:init()
@@ -44,13 +44,13 @@ function game_update()
 	tt=inc_tt(tt)
 	update_sprites()
 	sort_sprites()
-	world:update()
+	cemetary:update()
 end
 
 function game_draw()
 	palt(0,false)
 	palt(9,true)
-	world:draw()
+	cemetary:draw()
 	draw_sprites()
 end
 
@@ -68,7 +68,7 @@ function over_draw()
 end
 
 function init_skeleton()
-	local grave=rnd(world.graves)
+	local grave=rnd(cemetary.graves)
 	add(sprites,skeleton_new(grave.x,grave.y))
 end
 
@@ -198,6 +198,12 @@ function player_new()
 	end
 
 	function self:get_input()
+		self:get_direction_input()
+		self:get_jump_input()
+		self:get_dig_input()
+	end
+
+	function self:get_direction_input()
 		local speed=player_speed
 		self.dx*=friction
 		self.dy*=friction
@@ -222,6 +228,8 @@ function player_new()
 			self.dy+=speed
 		end
 
+	end
+	function self:get_jump_input()
 		if not self.go_jump then
 			if self.ready_jump and btn(❎) then
 				self.hold_jump+=1
@@ -253,6 +261,9 @@ function player_new()
 			local sign=abs(self.dy)/self.dy
 			self.dy=my*sign
 		end
+	end
+
+	function self:get_dig_input()
 	end
 
 	function self:collision()
@@ -424,7 +435,7 @@ function ghost_new()
 		x0=-big_size
 	end
 	local y0=flr(rnd(32))
-	local self={
+	local ghost={
 		type="ghost",
 		x=x0,
 		y=y0,
@@ -444,109 +455,109 @@ function ghost_new()
 		y2=y0+big_size*2,
 	}
 
-	function self:update()
-		self.tt=inc_tt(self.tt)
-		self:move()
-		self:animate()
+	function ghost:update()
+		ghost.tt=inc_tt(ghost.tt)
+		ghost:move()
+		ghost:animate()
 	end
 
-	function self:draw()
-		self:draw_head()
-		self:draw_body()
+	function ghost:draw()
+		ghost:draw_head()
+		ghost:draw_body()
 	end
 
-	function self:move()
-		self.dist=distance(self,player.behind)
-		if self.dist<ghost_near then
-			self.dx,self.dy=0,0
+	function ghost:move()
+		ghost.dist=distance(ghost,player.behind)
+		if ghost.dist<ghost_near then
+			ghost.dx,ghost.dy=0,0
 		else
-			self:move_to_player()
+			ghost:move_to_player()
 		end
-		self.x+=self.dx
-		self.y+=self.dy
-		if self.dx<0 then
-			self.turned=true
-		elseif self.dx>0 then
-			self.turned=false
+		ghost.x+=ghost.dx
+		ghost.y+=ghost.dy
+		if ghost.dx<0 then
+			ghost.turned=true
+		elseif ghost.dx>0 then
+			ghost.turned=false
 		end
-		self:update_bounds()
+		ghost:update_bounds()
 	end
 
-	function self:move_to_player()
+	function ghost:move_to_player()
 		local a=ghost_speed
-		if self.dist<ghost_near then
+		if ghost.dist<ghost_near then
 			a=ghost_speed/4
-		elseif self.dist<ghost_close then
+		elseif ghost.dist<ghost_close then
 			a=ghost_speed/2
 		end
 		local p=player.behind
-		local sx=(self.x1+self.x2)/2
-		local sy=(self.y1+self.y2)/2
+		local sx=(ghost.x1+ghost.x2)/2
+		local sy=(ghost.y1+ghost.y2)/2
 		local angle=atan2(p.x-sx,p.y-sy)
-		self.dx=cos(angle)*a
-		self.dy=sin(angle)*a/2
+		ghost.dx=cos(angle)*a
+		ghost.dy=sin(angle)*a/2
 	end
 
-	function self:update_bounds()
-		self.x1=self.x
-		self.x2=self.x+big_size
-		self.y1=self.y
-		self.y2=self.y+big_size*2
+	function ghost:update_bounds()
+		ghost.x1=ghost.x
+		ghost.x2=ghost.x+big_size
+		ghost.y1=ghost.y
+		ghost.y2=ghost.y+big_size*2
 	end
 
-	function self:animate()
-		self:animate_body()
+	function ghost:animate()
+		ghost:animate_body()
 	end
 
-	function self:animate_body()
-		if self.tt%4==0 then
-			self.frame_body_index+=1
+	function ghost:animate_body()
+		if ghost.tt%4==0 then
+			ghost.frame_body_index+=1
 		end
-		if self.frame_body_index>#self.frame_body then
-			self.frame_body_index=1
+		if ghost.frame_body_index>#ghost.frame_body then
+			ghost.frame_body_index=1
 		end
 		local a=scalar
-		self.hover_p=cos(self.tt*ghost_float_freq)
-		self.hover_y=a*self.hover_p*ghost_float_amp-a*ghost_float_disp
+		ghost.hover_p=cos(ghost.tt*ghost_float_freq)
+		ghost.hover_y=a*ghost.hover_p*ghost_float_amp-a*ghost_float_disp
 	end
 
-	function self:draw_head()
-		local x=self.x
-		local y=self.y+self.hover_y
-		zspr(self.frame_head,x,y,self.turned)
+	function ghost:draw_head()
+		local x=ghost.x
+		local y=ghost.y+ghost.hover_y
+		zspr(ghost.frame_head,x,y,ghost.turned)
 	end
 
-	function self:get_frame_body()
-		return self.frame_body[self.frame_body_index]
+	function ghost:get_frame_body()
+		return ghost.frame_body[ghost.frame_body_index]
 	end
 
-	function self:draw_float_body()
-		local x=self.x
-		local y=self.y+self.hover_y+big_size
-		zspr(self:get_frame_body(),x,y,self.turned)
+	function ghost:draw_float_body()
+		local x=ghost.x
+		local y=ghost.y+ghost.hover_y+big_size
+		zspr(ghost:get_frame_body(),x,y,ghost.turned)
 	end
 
-	function self:draw_body()
-		local x=self.x
-		local y=self.y+self.hover_y+big_size
-		zspr(self:get_frame_body(),x,y,self.turned)
+	function ghost:draw_body()
+		local x=ghost.x
+		local y=ghost.y+ghost.hover_y+big_size
+		zspr(ghost:get_frame_body(),x,y,ghost.turned)
 	end
 
-	function self:draw_shadow()
-		self:draw_shadow_line(-1)
-		self:draw_shadow_line(0)
-		self:draw_shadow_line(1)
+	function ghost:draw_shadow()
+		ghost:draw_shadow_line(-1)
+		ghost:draw_shadow_line(0)
+		ghost:draw_shadow_line(1)
 	end
 
-	function self:draw_shadow_line(n)
+	function ghost:draw_shadow_line(n)
 		local a=scalar
 		local b=big_size/4
-		local x=self.x+big_size/4
-		local y=self.y+2*(big_size)
+		local x=ghost.x+big_size/4
+		local y=ghost.y+2*(big_size)
 		draw_shadow_line(a,b,n,x,y)
 	end
 
-	return self
+	return ghost
 end
 -->8
 --skeleton
@@ -563,7 +574,7 @@ skeleton_near=3*big_size
 skeleton_close=5*big_size
 
 function skeleton_new(x0,y0)
-	local self={
+	local skeleton={
 		type="skeleton",
 		x=x0,
 		y=y0,
@@ -584,195 +595,195 @@ function skeleton_new(x0,y0)
 		nrise=0,
 	}
 
-	function self:update()
-		self.tt=inc_tt(self.tt)
-		self:move()
-		self:collision()
-		self:animate()
+	function skeleton:update()
+		skeleton.tt=inc_tt(skeleton.tt)
+		skeleton:move()
+		skeleton:collision()
+		skeleton:animate()
 	end
 
-	function self:bury()
-		return self.state=="bury"
+	function skeleton:bury()
+		return skeleton.state=="bury"
 	end
 
-	function self:rise()
-		return self.state=="rise"
+	function skeleton:rise()
+		return skeleton.state=="rise"
 	end
 
-	function self:crawl()
-		return self.state=="crawl"
+	function skeleton:crawl()
+		return skeleton.state=="crawl"
 	end
 
-	function self:float()
-		return self.state=="float"
+	function skeleton:float()
+		return skeleton.state=="float"
 	end
 
-	function self:move()
-		if self:bury() then
-			self.dx,self.dy=0,0
-		elseif self:crawl() then
-			self:crawl_to_player()
-		elseif self:float() then
-			self:float_to_player()
-		elseif self:rise() then
-			self.dx,self.dy=0,0
+	function skeleton:move()
+		if skeleton:bury() then
+			skeleton.dx,skeleton.dy=0,0
+		elseif skeleton:crawl() then
+			skeleton:crawl_to_player()
+		elseif skeleton:float() then
+			skeleton:float_to_player()
+		elseif skeleton:rise() then
+			skeleton.dx,skeleton.dy=0,0
 		else
 			assert(false)
 		end
-		self.x+=self.dx
-		self.y+=self.dy
-		if self.dx<0 then
-			self.turned=true
-		elseif self.dx>0 then
-			self.turned=false
+		skeleton.x+=skeleton.dx
+		skeleton.y+=skeleton.dy
+		if skeleton.dx<0 then
+			skeleton.turned=true
+		elseif skeleton.dx>0 then
+			skeleton.turned=false
 		end
-		self:update_bounds()
+		skeleton:update_bounds()
 	end
 
-	function self:crawl_to_player()
+	function skeleton:crawl_to_player()
 		local a=skeleton_crawl_speed
-		local angle=atan2(player.x-self.x,player.y-self.y)
-		self.dx=cos(angle)*a
-		self.dy=sin(angle)*a
+		local angle=atan2(player.x-skeleton.x,player.y-skeleton.y)
+		skeleton.dx=cos(angle)*a
+		skeleton.dy=sin(angle)*a
 	end
 
-	function self:float_to_player()
+	function skeleton:float_to_player()
 		local a=skeleton_float_speed
-		local angle=atan2(player.x-self.x,player.y-self.y)
-		self.dx=cos(angle)*a
-		self.dy=sin(angle)*a
+		local angle=atan2(player.x-skeleton.x,player.y-skeleton.y)
+		skeleton.dx=cos(angle)*a
+		skeleton.dy=sin(angle)*a
 	end
 
-	function self:update_bounds()
-		self.x1=self.x
-		self.x2=self.x+big_size
-		self.y1=self.y+big_size*2-scalar
-		self.y2=self.y+big_size*2+scalar
+	function skeleton:update_bounds()
+		skeleton.x1=skeleton.x
+		skeleton.x2=skeleton.x+big_size
+		skeleton.y1=skeleton.y+big_size*2-scalar
+		skeleton.y2=skeleton.y+big_size*2+scalar
 	end
 
-	function self:collision()
+	function skeleton:collision()
 		local close=skeleton_close
 		local near=skeleton_near
-		self.dist=distance(self,player)
-		if self:bury() then
-			if self.dist>near then
-				self.state="crawl"
+		skeleton.dist=distance(skeleton,player)
+		if skeleton:bury() then
+			if skeleton.dist>near then
+				skeleton.state="crawl"
 			end
-		elseif self:collide_with_player() then
-			if not self:bury() then
+		elseif skeleton:collide_with_player() then
+			if not skeleton:bury() then
 				--player:die()
-				self:die()
+				skeleton:die()
 			end
-		elseif self.dist<near then
-			if self:crawl() then
-				self.state="rise"
+		elseif skeleton.dist<near then
+			if skeleton:crawl() then
+				skeleton.state="rise"
 			end
-			self.nrise=min(self.nrise+1,rise_length)
-			if self.nrise==rise_length then
-				if self:rise() then
-					self.tt=0
+			skeleton.nrise=min(skeleton.nrise+1,rise_length)
+			if skeleton.nrise==rise_length then
+				if skeleton:rise() then
+					skeleton.tt=0
 				end
-				self.state="float"
+				skeleton.state="float"
 			end
-		elseif self:float() and self.dist>close then
-			self.state="rise"
-		elseif self:rise() then
-			self.nrise=max(0,self.nrise-2)
-			if self.nrise==0 then
-				self.state="crawl"
+		elseif skeleton:float() and skeleton.dist>close then
+			skeleton.state="rise"
+		elseif skeleton:rise() then
+			skeleton.nrise=max(0,skeleton.nrise-2)
+			if skeleton.nrise==0 then
+				skeleton.state="crawl"
 			end
 		end
 	end
 
-	function self:collide_with_player()
-		return collision(self,player)
+	function skeleton:collide_with_player()
+		return collision(skeleton,player)
 	end
 
-	function self:animate()
-		self:animate_body()
+	function skeleton:animate()
+		skeleton:animate_body()
 	end
 
-	function self:animate_body()
+	function skeleton:animate_body()
 		local a=scalar
 		local shf=skeleton_hover_frequency
 		local sha=skeleton_hover_amp
 		local shd=skeleton_hover_disp
-		self.hover_p=cos(self.tt/shf)
-		self.hover_y=a*self.hover_p*sha-a*shd
+		skeleton.hover_p=cos(skeleton.tt/shf)
+		skeleton.hover_y=a*skeleton.hover_p*sha-a*shd
 	end
 
-	function self:draw()
-		if self:bury() then
-		elseif self:crawl() then
-			self:draw_crawl_body()
-			self:draw_crawl_head()
-		elseif self:rise() then
-			self:draw_rise_body()
-			self:draw_rise_head()
+	function skeleton:draw()
+		if skeleton:bury() then
+		elseif skeleton:crawl() then
+			skeleton:draw_crawl_body()
+			skeleton:draw_crawl_head()
+		elseif skeleton:rise() then
+			skeleton:draw_rise_body()
+			skeleton:draw_rise_head()
 		else
-			self:draw_float_body()
-			self:draw_float_head()
+			skeleton:draw_float_body()
+			skeleton:draw_float_head()
 		end
 	end
 
-	function self:draw_shadow()
-		if self:float() then
-			self:draw_shadow_line(-1)
-			self:draw_shadow_line(0)
-			self:draw_shadow_line(1)
+	function skeleton:draw_shadow()
+		if skeleton:float() then
+			skeleton:draw_shadow_line(-1)
+			skeleton:draw_shadow_line(0)
+			skeleton:draw_shadow_line(1)
 		end
 	end
 
-	function self:draw_shadow_line(n)
+	function skeleton:draw_shadow_line(n)
 		local a=scalar
 		local b=big_size/4
-		local x=self.x+big_size/4
-		local y=self.y+2*(big_size)
+		local x=skeleton.x+big_size/4
+		local y=skeleton.y+2*(big_size)
 		draw_shadow_line(a,b,n,x,y)
 	end
 
-	function self:draw_float_head()
-		local x=self.x
-		local y=self.y+self.hover_y
-		zspr(self.frame_head,x,y,self.turned)
+	function skeleton:draw_float_head()
+		local x=skeleton.x
+		local y=skeleton.y+skeleton.hover_y
+		zspr(skeleton.frame_head,x,y,skeleton.turned)
 	end
 
-	function self:draw_crawl_head()
-		local x=self.x
-		local y=self.y+big_size
+	function skeleton:draw_crawl_head()
+		local x=skeleton.x
+		local y=skeleton.y+big_size
 		local scf=skeleton_crawl_frequency
-		x+=cos(self.tt/scf)*scalar
-		zspr(self.frame_head,x,y,self.turned)
+		x+=cos(skeleton.tt/scf)*scalar
+		zspr(skeleton.frame_head,x,y,skeleton.turned)
 	end
 
-	function self:draw_rise_head()
-		local x=self.x
-		local y=self.y+big_size
-		local r=min(rise_length/2,self.nrise)
+	function skeleton:draw_rise_head()
+		local x=skeleton.x
+		local y=skeleton.y+big_size
+		local r=min(rise_length/2,skeleton.nrise)
 		local f=rise_length*4
 		local d=sin(r/f)*big_size/2
-		if self.turned then
+		if skeleton.turned then
 			x-=d
 			y+=d
 		else
 			x+=d
 			y+=d
 		end
-		if self.nrise>r then
-			local shd=-self.hover_y
-			local rd=rise_length-self.nrise
+		if skeleton.nrise>r then
+			local shd=-skeleton.hover_y
+			local rd=rise_length-skeleton.nrise
 			local rt=cos(rd/f*2)*shd
 			y-=rt
 		end
-		zspr(self.frame_head,x,y,self.turned)
+		zspr(skeleton.frame_head,x,y,skeleton.turned)
 	end
 
-	function self:draw_rise_body()
-		local x=self.x
-		local y=self.y+big_size+scalar*2
-		if self.nrise>rise_length/2 then
-			frame=self.frame_float_body
-			if self.turned then
+	function skeleton:draw_rise_body()
+		local x=skeleton.x
+		local y=skeleton.y+big_size+scalar*2
+		if skeleton.nrise>rise_length/2 then
+			frame=skeleton.frame_float_body
+			if skeleton.turned then
 				x+=big_size/2-scalar
 			else
 				x-=big_size/2-scalar*2
@@ -780,54 +791,54 @@ function skeleton_new(x0,y0)
 			y+=scalar*3
 			local f=rise_length*4
 			local shd=skeleton_hover_disp
-			local rd=rise_length-self.nrise
+			local rd=rise_length-skeleton.nrise
 			local rt=cos(rd/f*2)*shd
 			y-=rt
 		else
-			frame=self.frame_crawl_body
-			if self.turned then
+			frame=skeleton.frame_crawl_body
+			if skeleton.turned then
 				x+=big_size
 			else
 				x-=big_size
 			end
 			local scf=skeleton_crawl_frequency
-			x-=cos(self.tt/scf)*scalar
+			x-=cos(skeleton.tt/scf)*scalar
 		end
-		zspr(frame,x,y,self.turned)
+		zspr(frame,x,y,skeleton.turned)
 	end
 
-	function self:draw_float_body()
-		local x=self.x
-		local y=self.y+self.hover_y+big_size
-		zspr(self.frame_float_body,x,y,self.turned)
+	function skeleton:draw_float_body()
+		local x=skeleton.x
+		local y=skeleton.y+skeleton.hover_y+big_size
+		zspr(skeleton.frame_float_body,x,y,skeleton.turned)
 	end
 
-	function self:draw_crawl_body()
-		local x=self.x
-		local y=self.y+big_size+scalar*2
+	function skeleton:draw_crawl_body()
+		local x=skeleton.x
+		local y=skeleton.y+big_size+scalar*2
 		local frame
-		frame=self.frame_crawl_body
-		if self.turned then
+		frame=skeleton.frame_crawl_body
+		if skeleton.turned then
 			x+=big_size
 		else
 			x-=big_size
 		end
 		local scf=skeleton_crawl_frequency
-		x-=cos(self.tt/scf)*scalar
-		zspr(frame,x,y,self.turned)
+		x-=cos(skeleton.tt/scf)*scalar
+		zspr(frame,x,y,skeleton.turned)
 	end
 
-	function self:die()
-		del(sprites,self)
+	function skeleton:die()
+		del(sprites,skeleton)
 		init_skeleton()
 	end
 	
-	return self
+	return skeleton
 end
 -->8
 --map
 
-world={}
+cemetary={}
 
 moon_x=96
 moon_y=20
@@ -838,8 +849,8 @@ cloud_div=(128+32)/num_clouds
 num_grave_cols=12
 num_grave_rows=6
 
-function world_init()
-	local self={
+function cemetary_init()
+	local world={
 		stars={},
 		clouds={},
 		graves={},
@@ -854,7 +865,7 @@ function world_init()
 			if on_path(j,k) then
 			elseif rnd(1)<0.3 then
 			else
-				add(self.graves,{
+				add(world.graves,{
 					f=f,
 					x=x,
 					y=y,
@@ -868,14 +879,14 @@ function world_init()
 		end
 	end
 
-	foreach(self.graves,function(g)
+	foreach(world.graves,function(g)
 		add(sprites,g)
 	end)
 
 	for i=1,num_clouds do
 		local cx=rnd(cloud_div/num_clouds)
 		local cdx=cloud_div*i-64+cx
-		add(self.clouds, {
+		add(world.clouds, {
 			x=cdx,
 			y=rnd_cloud_y(),
 			dx=rnd_cloud_dx(),
@@ -891,37 +902,37 @@ function world_init()
 		local rx=abs(sx-moon_x)>(moon_r+2)
 		local ry=abs(sy-moon_y)>(moon_r+2)
 		if rx or ry then
-			add(self.stars,{
+			add(world.stars,{
 				x=sx,
 				y=sy,
 			})
 		end
 	end
 	
-	function self:update()
-		self:update_clouds()
+	function world:update()
+		world:update_clouds()
 	end
 	
-	function self:draw()
+	function world:draw()
 		--draw sky
 		cls(1)
 
 		--draw ground
 		rectfill(0,64,128,128,2)
 
-		self:draw_lantern_light()
+		world:draw_lantern_light()
 
 		--draw moon
 		circfill(moon_x,moon_y,moon_r,14)
 		circfill(moon_x+5,moon_y-5,moon_r,1)
 
-		self:draw_stars()
-		self:draw_clouds()
+		world:draw_stars()
+		world:draw_clouds()
 
-		--self:draw_cemetary()
+		--world:draw_cemetary()
 	end
 
-	function self:draw_lantern_light()
+	function world:draw_lantern_light()
 		local x=player.x
 		local y=player.y+big_size+player.ty/4
 		local r=big_size*3-player.ty
@@ -935,19 +946,19 @@ function world_init()
 		clip()
 	end
 
-	function self:update_clouds()
-		foreach(self.clouds,update_cloud)
+	function world:update_clouds()
+		foreach(world.clouds,update_cloud)
 	end
 
-	function self:draw_clouds()
-		foreach(self.clouds,draw_cloud)
+	function world:draw_clouds()
+		foreach(world.clouds,draw_cloud)
 	end
 
-	function self:draw_stars()
-		foreach(self.stars,draw_star)
+	function world:draw_stars()
+		foreach(world.stars,draw_star)
 	end
 
-	return self
+	return world
 end
 
 path_cols={4}
