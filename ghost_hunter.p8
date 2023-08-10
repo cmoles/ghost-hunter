@@ -2,6 +2,8 @@ pico-8 cartridge // http://www.pico-8.com
 version 41
 __lua__
 --main
+debug=true
+debug=false
 
 sprites={}
 cell_size=8
@@ -11,26 +13,38 @@ big_size=16
 big_size=8
 scalar=big_size/cell_size
 function _init()
+	if not debug then
+		start_screen()
+	else
+		start_game()
+	end
+end
+
+function start_game()
+	tt=0
+	sprites={}
+
+	cemetary=cemetary_init()
+
+	player=player_new()
+	player:init()
+	add(sprites,player)
+
+	add(sprites,ghost_new())
+	init_skeleton()
+
+	_update=game_update
+	_draw=game_draw
+end
+
+function start_screen()
 	_update=start_update
 	_draw=start_draw
 end
 
 function start_update()
 	if (btnp(🅾️)) then
-		tt=0
-		sprites={}
-
-		cemetary=cemetary_init()
-
-		player=player_new()
-		player:init()
-		add(sprites,player)
-
-		add(sprites,ghost_new())
-		init_skeleton()
-
-		_update=game_update
-		_draw=game_draw
+		start_game()
 	end
 end
 
@@ -87,6 +101,11 @@ function draw_sprites()
 	foreach(sprites,function(sprite)
 		sprite:draw()
 	end)
+	if debug then
+		foreach(sprites,function(sprite)
+			sprite:draw_boundary()
+		end)
+	end
 end
 
 function sort_sprites()
@@ -398,6 +417,19 @@ function player_new()
 		end
 	end
 
+	function self:draw_boundary()
+		local x1=self.x1
+		local x2=self.x2
+		local y1=self.y1
+		local y2=self.y2
+		local x3=self.behind.x1
+		local x4=self.behind.x2
+		local y3=self.behind.y1
+		local y4=self.behind.y2
+		rectfill(x1,y1,x2,y2,8)
+		rectfill(x3,y3,x4,y4,10)
+	end
+
 	function self:draw_shadow()
 		if self.ty<0 then
 			self:draw_shadow_line(-1)
@@ -544,6 +576,14 @@ function ghost_new()
 		local x=ghost.x
 		local y=ghost.y+ghost.hover_y+big_size
 		zspr(ghost:get_frame_body(),x,y,ghost.turned)
+	end
+
+	function ghost:draw_boundary()
+		local x1=self.x1
+		local x2=self.x2
+		local y1=self.y1
+		local y2=self.y2
+		rectfill(x1,y1,x2,y2,8)
 	end
 
 	function ghost:draw_shadow()
@@ -729,6 +769,14 @@ function skeleton_new(x0,y0)
 		end
 	end
 
+	function skeleton:draw_boundary()
+		local x1=self.x1
+		local x2=self.x2
+		local y1=self.y1
+		local y2=self.y2
+		rectfill(x1,y1,x2,y2,8)
+	end
+
 	function skeleton:draw_shadow()
 		if skeleton:float() then
 			skeleton:draw_shadow_line(-1)
@@ -876,6 +924,7 @@ function cemetary_init()
 					open=rnd(1)<0.2,
 					update=update_grave,
 					draw=draw_grave,
+					draw_boundary=draw_grave_boundary,
 					draw_shadow=draw_grave_shadow,
 				})
 			end
@@ -1016,6 +1065,15 @@ end
 
 function update_grave(g)
 end
+
+function draw_grave_boundary(g)
+	local x1=g.x1
+	local x2=g.x2
+	local y1=g.y1
+	local y2=g.y2
+	rectfill(x1,y1,x2,y2,8)
+end
+
 function draw_grave_shadow(g)
 	local f
 	if g.open then
