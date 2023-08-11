@@ -177,6 +177,7 @@ friction=0.85
 gravity=0.2*scalar
 player_max_speed=1.5*scalar
 y_scalar=.5*scalar
+begin_cool_down=10
 
 function player_new()
 	local x0,y0=47,90
@@ -310,7 +311,7 @@ function player_new()
 
 		if self:crouch() and btnp(🅾️) then
 			if self.cool_down_cmd==0 then
-				self.cool_down_cmd=10
+				self.cool_down_cmd=begin_cool_down
 				ghosts_command()
 			end
 		end
@@ -341,7 +342,7 @@ function player_new()
 
 		if self:dig() and btnp(❎) then
 			if self.cool_down_dig==0 then
-				self.cool_down_dig=10
+				self.cool_down_dig=begin_cool_down
 				cemetary:try_dig()
 			end
 		end
@@ -469,7 +470,7 @@ function player_new()
 
 	function self:draw_head()
 		local y=self.y+self.ty
-		if self.hold_jump>0 then
+		if self.hold_jump>0 or self.cool_down_dig>begin_cool_down/2 then
 			y+=1*scalar
 		end
 		zspr(self.frame_head,self.x,y,self.turned)
@@ -536,19 +537,6 @@ function player_new()
 		else
 			x-=big_size-3*scalar
 		end
-
-		--[[
-		if (self.turned and self.cool_down_cmd==0)
-		or (not self.turned and self.cool_down_cmd>0) then
-			x+=big_size-3*scalar
-		else
-			x-=big_size-3*scalar
-		end
-		if self.hold_jump>0 then
-			y+=1*scalar
-		end
-		]]
-
 		zspr(self.frame_shovel_top_idle,x,y,turned)
 		zspr(self.frame_shovel_bottom_idle,x,y+big_size,turned)
 	end
@@ -556,7 +544,7 @@ function player_new()
 	function self:draw_shovel_ready()
 		local x=self.x
 		local x2=self.x
-		local y=self.y+self.ty+big_size
+		local y1=self.y+self.ty+big_size
 		if self.turned then
 			x+=big_size-4*scalar
 			x2+=-4*scalar
@@ -565,10 +553,12 @@ function player_new()
 			x2-=-4*scalar
 		end
 		if self.hold_jump>0 then
-			y+=1*scalar
+			y1+=1*scalar
 		end
-		zspr(self.frame_shovel_bottom_ready,x,y,self.turned)
-		zspr(self.frame_shovel_top_ready,x2,y,self.turned)
+		local y2=y1+self.cool_down_dig/(begin_cool_down/4*scalar)
+		y1=y1+self.cool_down_dig/(begin_cool_down/2*scalar)
+		zspr(self.frame_shovel_bottom_ready,x,y1,self.turned)
+		zspr(self.frame_shovel_top_ready,x2,y2,self.turned)
 	end
 
 	function self:draw_boundary()
