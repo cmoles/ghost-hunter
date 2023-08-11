@@ -31,7 +31,6 @@ function start_game()
 	add(sprites,player)
 
 	add(sprites,ghost_new())
-	init_skeleton()
 
 	_update=game_update
 	_draw=game_draw
@@ -81,8 +80,7 @@ function over_draw()
 	print(message,64-(#message*8)/4,64,7)
 end
 
-function init_skeleton()
-	local grave=rnd(cemetary.graves)
+function init_skeleton(grave)
 	add(sprites,skeleton_new(grave.x,grave.y))
 end
 
@@ -257,7 +255,7 @@ function player_new()
 		if not self.go_jump then
 			if self.ready_jump and btn(❎) then
 				self.hold_jump+=1
-				self.hold_light=min(5,self.hold_jump+1)
+				self.hold_light=min(10,self.hold_jump+1)
 			elseif self.hold_jump>0 then
 				self.go_jump=true
 			end
@@ -881,7 +879,6 @@ function skeleton_new(x0,y0)
 
 	function skeleton:die()
 		del(sprites,skeleton)
-		init_skeleton()
 	end
 	
 	return skeleton
@@ -972,10 +969,11 @@ function cemetary_init()
 		local g=world:get_grave(cx,cy)
 		if g then
 			if g.open then
-				g.open=false
-				sfx(1)
+				--g.open=false
+				--sfx(1)
 			else
 				g.open=true
+				open_grave(g)
 				sfx(2)
 			end
 		end
@@ -1065,6 +1063,15 @@ function on_path(j,k)
 end
 
 function update_grave(g)
+end
+
+function open_grave(g)
+	if rnd(1)<0.5 then
+		init_skeleton(g)
+	else
+		--init_ghost(g)
+		--init_zombie(g)
+	end
 end
 
 function draw_grave_boundary(g)
