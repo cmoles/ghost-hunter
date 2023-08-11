@@ -575,7 +575,7 @@ function player_new()
 	function self:draw_shovel_ready()
 		local x=self.x
 		local x2=self.x
-		local y1=self.y+self.ty+big_size
+		local y1=self.y+big_size
 		if self.turned then
 			x+=big_size-4*scalar
 			x2+=-4*scalar
@@ -586,8 +586,8 @@ function player_new()
 		if self.hold_jump>0 then
 			y1+=1*scalar
 		end
-		local y2=y1+self.cool_down_dig/(begin_cool_down/4*scalar)
-		y1=y1+self.cool_down_dig/(begin_cool_down/2*scalar)
+		local y2=y1+(self.cool_down_dig/(begin_cool_down/4))*scalar
+		y1=y1+(self.cool_down_dig/(begin_cool_down/2))*scalar
 		zspr(self.frame_shovel_bottom_ready,x,y1,self.turned)
 		zspr(self.frame_shovel_top_ready,x2,y2,self.turned)
 	end
