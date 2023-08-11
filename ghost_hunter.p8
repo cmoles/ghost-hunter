@@ -30,8 +30,6 @@ function start_game()
 	player:init()
 	add(sprites,player)
 
-	add(sprites,ghost_new())
-
 	_update=game_update
 	_draw=game_draw
 end
@@ -78,6 +76,11 @@ function over_draw()
 	cls()
 	local message="game over"
 	print(message,64-(#message*8)/4,64,7)
+end
+
+function init_ghost(grave)
+	local ghost=ghost_new(grave.x,grave.y)
+	add(sprites,ghost)
 end
 
 function init_skeleton(grave)
@@ -471,12 +474,7 @@ ghost_float_disp=10
 ghost_near=2*big_size
 ghost_close=5*big_size
 
-function ghost_new()
-	local x0=128
-	if rnd(1)<.5 then
-		x0=-big_size
-	end
-	local y0=flr(rnd(32))
+function ghost_new(x0,y0)
 	local ghost={
 		type="ghost",
 		x=x0,
@@ -1069,7 +1067,7 @@ function open_grave(g)
 	if rnd(1)<0.5 then
 		init_skeleton(g)
 	else
-		--init_ghost(g)
+		init_ghost(g)
 		--init_zombie(g)
 	end
 end
