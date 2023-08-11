@@ -193,6 +193,7 @@ function player_new()
 		vy=0,
 		ty=0,
 		hold_jump=0,
+		hold_light=0,
 		ready_jump=true,
 		go_jump=false,
 	}
@@ -256,9 +257,13 @@ function player_new()
 		if not self.go_jump then
 			if self.ready_jump and btn(❎) then
 				self.hold_jump+=1
+				self.hold_light=min(5,self.hold_jump+1)
 			elseif self.hold_jump>0 then
 				self.go_jump=true
 			end
+		end
+		if self.go_jump then
+			self.hold_light=max(0,self.hold_light-1)
 		end
 
 		if self.hold_jump>0 and self.go_jump then
@@ -1014,13 +1019,14 @@ function cemetary_init()
 	end
 
 	function world:draw_lantern_light()
+		local b=player.hold_light
 		local x=player.x
 		local y=player.y+big_size+player.ty/4
 		local r=big_size*3-player.ty
 		if player.turned then
-			x-=big_size*3+1-player.ty
+			x-=big_size*3+1-player.ty+b
 		else
-			x+=big_size
+			x+=big_size+b
 		end
 		clip(0,64,128,64)
 		ovalfill(x,y,x+r,y+r/2,14)
