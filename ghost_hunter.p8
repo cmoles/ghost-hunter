@@ -13,6 +13,7 @@ big_size=16
 big_size=8
 scalar=big_size/cell_size
 function _init()
+	ready_game=true
 	if not debug then
 		start_screen()
 	else
@@ -40,7 +41,8 @@ function start_screen()
 end
 
 function start_update()
-	if (btnp(🅾️)) then
+	if btn(🅾️) then
+		ready_game=false
 		start_game()
 	end
 end
@@ -325,9 +327,13 @@ function player_new()
 	end
 
 	function self:get_dig_input()
-		--if btnp(🅾️) then
-			--cemetary:try_dig()
-		--end
+		if btn(🅾️) then
+			if not ready_game then
+				return
+			end
+		elseif not ready_game then
+			ready_game=true
+		end
 		if self:idle() and btn(🅾️) then
 			self.state="dig"
 		elseif self:dig() and not btn(🅾️) then
