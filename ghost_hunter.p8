@@ -234,11 +234,15 @@ function player_new()
 		end
 		if btn(⬅️) then
 			self.dx-=speed
-			self.turned=true
+			if not btn(❎) then
+				self.turned=true
+			end
 		end
 		if btn(➡️) then
 			self.dx+=speed
-			self.turned=false
+			if not btn(❎) then
+				self.turned=false
+			end
 		end
 		if btn(⬆️) then
 			self.dy-=speed
