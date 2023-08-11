@@ -197,8 +197,7 @@ function player_new()
 		ty=0,
 		hold_jump=0,
 		hold_light=0,
-		ready_jump=true,
-		go_jump=false,
+		state="idle",
 	}
 
 	function self:init()
@@ -212,6 +211,34 @@ function player_new()
 		self:collision()
 		self:move()
 		self:animate()
+	end
+
+	function self:idle()
+		return self.state=="idle"
+	end
+
+	function self:jump()
+		return self.state=="jump"
+	end
+
+	function self:crouch()
+		return self.state=="crouch"
+	end
+
+	function self:dig()
+		return self.state=="dig"
+	end
+
+	function self:ready()
+		return self:idle() or self:crouch()
+	end
+
+	function self:lock()
+		return self:crouch() or self:jump() or btn(❎)
+	end
+
+	function self:slow()
+		return self:crouch() or self:dig()
 	end
 	
 	function self:draw()
@@ -239,13 +266,13 @@ function player_new()
 		end
 		if btn(⬅️) then
 			self.dx-=speed
-			if not btn(❎) then
+			if not self:lock() then
 				self.turned=true
 			end
 		end
 		if btn(➡️) then
 			self.dx+=speed
-			if not btn(❎) then
+			if not self:lock() then
 				self.turned=false
 			end
 		end
@@ -258,30 +285,30 @@ function player_new()
 
 	end
 	function self:get_jump_input()
-		if not self.go_jump then
-			if self.ready_jump and btn(❎) then
+		if not self:jump() then
+			if self:ready() and btn(❎) then
+				self.state="crouch"
 				self.hold_jump+=1
 				self.hold_light=min(10,self.hold_jump+1)
 			elseif self.hold_jump>0 then
-				self.go_jump=true
+				local a=mid(.5,self.hold_jump/5,1.2)
+				self.vy=a*self.boost
+				self.hold_jump=0
+				self.state="jump"
 			end
 		end
-		if self.go_jump then
+
+		if self:jump() then
 			self.hold_light=max(0,self.hold_light-1)
 		end
 
-		if self.hold_jump>0 and self.go_jump then
-			local a=mid(.5,self.hold_jump/5,1.2)
-			self.vy=a*self.boost
-			self.ready_jump=false
-			self.hold_jump=0
-		end
 		if self.ty<0 then
 			self.vy+=gravity
 		end
+
 		local mx=player_max_speed
 		local my=player_max_speed*y_scalar
-		if self.hold_jump>0 and not self.go_jump then
+		if self:slow() then
 			mx=player_speed
 			my=player_speed
 		end
@@ -296,7 +323,16 @@ function player_new()
 	end
 
 	function self:get_dig_input()
-		if btnp(🅾️) then
+		--if btnp(🅾️) then
+			--cemetary:try_dig()
+		--end
+		if self:idle() and btn(🅾️) then
+			self.state="dig"
+		elseif self:dig() and not btn(🅾️) then
+			self.state="idle"
+		end
+
+		if self:dig() and btnp(❎) then
 			cemetary:try_dig()
 		end
 	end
@@ -308,11 +344,10 @@ function player_new()
 	end
 
 	function self:collision_floor()
-		if self.vy>0 and self.ty>=0 and self.go_jump then
+		if self.vy>0 and self.ty>=0 and self:jump() then
 			self.ty=0
 			self.vy=0
-			self.ready_jump=true
-			self.go_jump=false
+			self.state="idle"
 		end
 	end
 
@@ -405,6 +440,7 @@ function player_new()
 	end
 
 	function self:draw_lantern()
+		if self:dig() then return end
 		local x=self.x
 		local y=self.y+self.ty+big_size/2+scalar
 		if self.turned then
@@ -1033,6 +1069,7 @@ function cemetary_init()
 	end
 
 	function world:draw_lantern_light()
+		if player:dig() then return end
 		local b=player.hold_light
 		local x=player.x
 		local y=player.y+big_size+player.ty/4
