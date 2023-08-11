@@ -171,8 +171,8 @@ player={}
 player_speed=.25*scalar
 friction=0.85
 gravity=0.2*scalar
-max_speed_x=1.5*scalar
-max_speed_y=.85*scalar
+player_max_speed=1.5*scalar
+y_scalar=.5*scalar
 
 function player_new()
 	local x0,y0=47,90
@@ -199,7 +199,7 @@ function player_new()
 
 	function self:init()
 		self:update_bounds()
-		self:update_behind()
+		self:update_queue()
 	end
 	
 	function self:update()
@@ -270,11 +270,11 @@ function player_new()
 		if self.ty<0 then
 			self.vy+=gravity
 		end
-		local mx=max_speed_x
-		local my=max_speed_y
+		local mx=player_max_speed
+		local my=player_max_speed*y_scalar
 		if self.hold_jump>0 and not self.go_jump then
-			mx*=0.25
-			my*=0.25
+			mx=player_speed
+			my=player_speed
 		end
 		if abs(self.dx)>mx then
 			local sign=abs(self.dx)/self.dx
@@ -323,7 +323,7 @@ function player_new()
 		self.y+=self.dy
 		self.ty+=self.vy
 		self:update_bounds()
-		self:update_behind()
+		self:update_queue()
 	end
 
 	function self:update_bounds()
@@ -333,25 +333,25 @@ function player_new()
 		self.y2=self.y+big_size*2+scalar
 	end
 
-	function self:update_behind()
+	function self:update_queue()
 		if self.turned then
-			self.behind={
+			self.queue={
 				x1=self.x1+big_size*2,
 				x2=self.x2+big_size*2,
 				y1=self.y1-big_size,
 				y2=self.y2-big_size,
 			}
 		else
-			self.behind={
+			self.queue={
 				x1=self.x1-big_size*2,
 				x2=self.x2-big_size*2,
 				y1=self.y1-big_size,
 				y2=self.y2-big_size,
 			}
 		end
-		local sb=self.behind
-		self.behind.x=(sb.x1+sb.x2)/2
-		self.behind.y=(sb.y1+sb.y2)/2
+		local sb=self.queue
+		self.queue.x=(sb.x1+sb.x2)/2
+		self.queue.y=(sb.y1+sb.y2)/2
 	end
 
 	function self:animate()
@@ -426,10 +426,10 @@ function player_new()
 		local x2=self.x2
 		local y1=self.y1
 		local y2=self.y2
-		local x3=self.behind.x1
-		local x4=self.behind.x2
-		local y3=self.behind.y1
-		local y4=self.behind.y2
+		local x3=self.queue.x1
+		local x4=self.queue.x2
+		local y3=self.queue.y1
+		local y4=self.queue.y2
 		rectfill(x1,y1,x2,y2,8)
 		rectfill(x3,y3,x4,y4,10)
 	end
@@ -461,11 +461,11 @@ end
 -->8
 --ghost
 
-ghost_speed=scalar
+--ghost_speed=.25*scalar
 ghost_float_freq=1/100
 ghost_float_amp=2
 ghost_float_disp=10
-ghost_near=big_size/4
+ghost_near=2*big_size
 ghost_close=5*big_size
 
 function ghost_new()
@@ -506,12 +506,8 @@ function ghost_new()
 	end
 
 	function ghost:move()
-		ghost.dist=distance(ghost,player.behind)
-		if ghost.dist<ghost_near then
-			ghost.dx,ghost.dy=0,0
-		else
-			ghost:move_to_player()
-		end
+		ghost.dist=distance(ghost,player.queue)
+		ghost:move_to_player()
 		ghost.x+=ghost.dx
 		ghost.y+=ghost.dy
 		if ghost.dx<0 then
@@ -523,18 +519,13 @@ function ghost_new()
 	end
 
 	function ghost:move_to_player()
-		local a=ghost_speed
-		if ghost.dist<ghost_near then
-			a=ghost_speed/4
-		elseif ghost.dist<ghost_close then
-			a=ghost_speed/2
-		end
-		local p=player.behind
+		local a=player_max_speed
+		local q=player.queue
 		local sx=(ghost.x1+ghost.x2)/2
 		local sy=(ghost.y1+ghost.y2)/2
-		local angle=atan2(p.x-sx,p.y-sy)
-		ghost.dx=cos(angle)*a
-		ghost.dy=sin(angle)*a/2
+		local angle=atan2(q.x-sx,q.y-sy)
+		ghost.dx=cos(angle)*min(a,ghost.dist)
+		ghost.dy=sin(angle)*min(a*y_scalar,ghost.dist)
 	end
 
 	function ghost:update_bounds()
