@@ -31,6 +31,9 @@ function start_game()
 	player:init()
 	add(sprites,player)
 
+	local start_pt1={x=rnd(64)+32,y=rnd(64)+32}
+	init_ghost(start_pt1)
+
 	_update=game_update
 	_draw=game_draw
 end
@@ -81,7 +84,7 @@ function over_draw()
 end
 
 function init_ghost(grave)
-	local ghost=ghost_new(grave.x,grave.y)
+	local ghost=ghost_new(grave.x,grave.y,#ghosts)
 	add(ghosts,ghost)
 	add(sprites,ghost)
 end
@@ -448,6 +451,29 @@ function player_new()
 		self.queue.y=(sb.y1+sb.y2)/2
 	end
 
+	function self:get_queue(n)
+		local a=1
+		local x1=self.queue.x1
+		local y1=self.queue.y1
+		local x2=self.queue.x2
+		local y2=self.queue.y2
+		if not self.turned then
+			a=-1
+		end
+		x1+=a*n*big_size
+		x2+=a*n*big_size
+		local x=(x1+x2)/2
+		local y=(y1+y2)/2
+		return {
+			x1=x1,
+			y1=y1,
+			x2=x2,
+			y2=y2,
+			x=x,
+			y=y,
+		}
+	end
+
 	function self:animate()
 		self:animate_body()
 	end
@@ -626,11 +652,12 @@ ghost_float_disp=10
 ghost_near=2*big_size
 ghost_close=5*big_size
 
-function ghost_new(x0,y0)
+function ghost_new(x0,y0,num)
 	local ghost={
 		type="ghost",
 		x=x0,
 		y=y0,
+		n=num,
 		dx=0,
 		dy=0,
 		tt=0,
@@ -659,7 +686,7 @@ function ghost_new(x0,y0)
 	end
 
 	function ghost:move()
-		ghost.dist=distance(ghost,player.queue)
+		ghost.dist=distance(ghost,player:get_queue(ghost.n))
 		ghost:move_to_player()
 		ghost.x+=ghost.dx
 		ghost.y+=ghost.dy
@@ -673,7 +700,7 @@ function ghost_new(x0,y0)
 
 	function ghost:move_to_player()
 		local a=player_max_speed
-		local q=player.queue
+		local q=player:get_queue(ghost.n)
 		local sx=(ghost.x1+ghost.x2)/2
 		local sy=(ghost.y1+ghost.y2)/2
 		local angle=atan2(q.x-sx,q.y-sy)
