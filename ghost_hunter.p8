@@ -465,8 +465,8 @@ function player_new()
 		if not self.turned then
 			a=-1
 		end
-		x1+=a*(n-1)*big_size
-		x2+=a*(n-1)*big_size
+		x1+=a*(n-.5)*big_size
+		x2+=a*(n-.5)*big_size
 		local x=(x1+x2)/2
 		local y=(y1+y2)/2
 		return {
