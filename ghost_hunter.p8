@@ -202,7 +202,8 @@ function player_new()
 		ty=0,
 		hold_jump=0,
 		hold_light=0,
-		cool_down=0,
+		cool_down_dig=0,
+		cool_down_cmd=0,
 		state="idle",
 	}
 
@@ -256,6 +257,8 @@ function player_new()
 	end
 
 	function self:get_input()
+		self.cool_down_dig=max(0,self.cool_down_dig-1)
+		self.cool_down_cmd=max(0,self.cool_down_cmd-1)
 		self:get_direction_input()
 		self:get_jump_input()
 		self:get_dig_input()
@@ -306,14 +309,10 @@ function player_new()
 		end
 
 		if self:crouch() and btnp(🅾️) then
-			if self.cool_down==0 then
-				self.cool_down=10
+			if self.cool_down_cmd==0 then
+				self.cool_down_cmd=10
 				ghosts_command()
 			end
-		end
-
-		if self.cool_down>0 then
-			self.cool_down-=1
 		end
 
 		if self:jump() then
@@ -341,7 +340,10 @@ function player_new()
 		end
 
 		if self:dig() and btnp(❎) then
-			cemetary:try_dig()
+			if self.cool_down_dig==0 then
+				self.cool_down_dig=10
+				cemetary:try_dig()
+			end
 		end
 	end
 
@@ -524,7 +526,20 @@ function player_new()
 	function self:draw_shovel_idle()
 		local x=self.x
 		local y=self.y+self.ty-3*scalar
-		if self.turned or self.cool_down>0 then
+		local a1=self.turned and self.cool_down_cmd==0
+		local b1=not self.turned and self.cool_down_cmd>0
+		local a2=self.turned and self.cool_down_cmd>0
+		local b2=not self.turned and self.cool_down_cmd==0
+		local turned=not(a2 or b2)
+		if a1 or b1 then
+			x+=big_size-3*scalar
+		else
+			x-=big_size-3*scalar
+		end
+
+		--[[
+		if (self.turned and self.cool_down_cmd==0)
+		or (not self.turned and self.cool_down_cmd>0) then
 			x+=big_size-3*scalar
 		else
 			x-=big_size-3*scalar
@@ -532,8 +547,10 @@ function player_new()
 		if self.hold_jump>0 then
 			y+=1*scalar
 		end
-		zspr(self.frame_shovel_top_idle,x,y,self.turned)
-		zspr(self.frame_shovel_bottom_idle,x,y+big_size,self.turned)
+		]]
+
+		zspr(self.frame_shovel_top_idle,x,y,turned)
+		zspr(self.frame_shovel_bottom_idle,x,y+big_size,turned)
 	end
 
 	function self:draw_shovel_ready()
