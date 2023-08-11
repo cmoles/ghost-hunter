@@ -136,7 +136,12 @@ function distance(a,b)
 	local by=(b.y1+b.y2)/2
 	local dx=bx-ax
 	local dy=by-ay
-	return sqrt(dx*dx+dy*dy)
+	local dd=dx*dx+dy*dy
+	if dd>0 then
+		return sqrt(dd)
+	else
+		return abs(dx)+abs(dy)
+	end
 end
 
 function zspr(frame,x,y,flip_x,flip_y)
@@ -460,8 +465,8 @@ function player_new()
 		if not self.turned then
 			a=-1
 		end
-		x1+=a*n*big_size
-		x2+=a*n*big_size
+		x1+=a*(n-1)*big_size
+		x2+=a*(n-1)*big_size
 		local x=(x1+x2)/2
 		local y=(y1+y2)/2
 		return {
@@ -649,8 +654,6 @@ end
 ghost_float_freq=1/100
 ghost_float_amp=2
 ghost_float_disp=10
-ghost_near=2*big_size
-ghost_close=5*big_size
 
 function ghost_new(x0,y0,num)
 	local ghost={
@@ -660,7 +663,7 @@ function ghost_new(x0,y0,num)
 		n=num,
 		dx=0,
 		dy=0,
-		tt=0,
+		tt=flr(rnd(1/ghost_float_freq)),
 		dist=128,
 		hover_p=0,
 		hover_y=0,
@@ -787,7 +790,17 @@ ghosts={}
 function ghosts_command()
 	if #ghosts>0 then
 		local ghost=ghosts[1]
+		ghost:die()
+		update_ghosts()
 	end
+end
+
+function update_ghosts()
+	local n=0
+	foreach(ghosts,function(ghost)
+		ghost.n=n
+		n+=1
+	end)
 end
 -->8
 --skeleton
