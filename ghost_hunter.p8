@@ -3,7 +3,7 @@ version 41
 __lua__
 --main
 debug=true
-debug=false
+--debug=false
 debug_bounds=false
 --debug_bounds=true
 
@@ -13,6 +13,7 @@ row_size=16
 big_size=32
 big_size=16
 big_size=8
+start_ghosts=6
 scalar=big_size/cell_size
 function _init()
 	ready_game=true
@@ -33,10 +34,7 @@ function start_game()
 	player:init()
 	add(sprites,player)
 
-	local n=1
-	if debug then
-		n=3
-	end
+	local n=start_ghosts
 
 	for i=1,n do
 		local start_pt={x=rnd(64)+32,y=rnd(64)+32}
@@ -476,17 +474,18 @@ function player_new()
 	end
 
 	function self:update_queue()
+		local m=#ghosts
 		if self.turned then
 			self.queue={
-				x1=self.x1+big_size*2,
-				x2=self.x2+big_size*2,
+				x1=self.x1+big_size*m/4+big_size,
+				x2=self.x2+big_size*m/4+big_size,
 				y1=self.y1-big_size,
 				y2=self.y2-big_size,
 			}
 		else
 			self.queue={
-				x1=self.x1-big_size*2,
-				x2=self.x2-big_size*2,
+				x1=self.x1-big_size*m/4-big_size,
+				x2=self.x2-big_size*m/4-big_size,
 				y1=self.y1-big_size,
 				y2=self.y2-big_size,
 			}
@@ -494,6 +493,33 @@ function player_new()
 		local sb=self.queue
 		self.queue.x=(sb.x1+sb.x2)/2
 		self.queue.y=(sb.y1+sb.y2)/2
+	end
+
+	function self:get_rotation(n)
+		local a=1
+		local m=#ghosts
+		local x1=self.queue.x1
+		local y1=self.queue.y1
+		local x2=self.queue.x2
+		local y2=self.queue.y2
+		if not self.turned then
+			a=-1*big_size*m/2
+		else
+			a=big_size*m/2
+		end
+		local f=1/(m)
+		x1+=a*cos(n*f+tt/100)
+		x2+=a*cos(n*f+tt/100)
+		y1+=a*sin(n*f+tt/100)
+		y2+=a*sin(n*f+tt/100)
+		return {
+			x1=x1,
+			y1=y1,
+			x2=x2,
+			y2=y2,
+			x=(x1+x2)/2,
+			y=(y1+y2)/2,
+		}
 	end
 
 	function self:get_queue(n)
@@ -729,7 +755,8 @@ function ghost_new(x0,y0,num)
 	end
 
 	function ghost:move()
-		ghost.dist=distance(ghost,player:get_queue(ghost.n))
+		--ghost.dist=distance(ghost,player:get_queue(ghost.n))
+		ghost.dist=distance(ghost,player:get_rotation(ghost.n))
 		ghost:move_to_player()
 		ghost.x+=ghost.dx
 		ghost.y+=ghost.dy
@@ -743,7 +770,8 @@ function ghost_new(x0,y0,num)
 
 	function ghost:move_to_player()
 		local a=player_max_speed
-		local q=player:get_queue(ghost.n)
+		--local q=player:get_queue(ghost.n)
+		local q=player:get_rotation(ghost.n)
 		local sx=(ghost.x1+ghost.x2)/2
 		local sy=(ghost.y1+ghost.y2)/2
 		local angle=atan2(q.x-sx,q.y-sy)
