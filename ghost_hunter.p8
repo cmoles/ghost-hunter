@@ -403,7 +403,7 @@ function player_new()
 	end
 
 	function self:collision_floor()
-		if self.dz>0 and self.sz>self.surface and self:jump() then
+		if self.dz>0 and self.sz>self.surface then
 			self:land(self.surface)
 		end
 	end
@@ -604,7 +604,7 @@ function player_new()
 	end
 
 	function self:animate_body()
-		if self.sz<0 then
+		if self:jump() then
 			return
 		end
 		if self.dx==0 and self.dy==0 then
@@ -1244,6 +1244,7 @@ num_clouds=2
 cloud_div=(128+32)/num_clouds
 num_grave_cols=12
 num_grave_rows=6
+sky_limit=-1000
 
 function cemetary_init()
 	local world={
@@ -1329,7 +1330,7 @@ function cemetary_init()
 
 	function world:collision(p)
 		if p.y1<horizon then
-			return -1000
+			return sky_limit
 		end
 		return world:hit_tombstone(p)
 	end
