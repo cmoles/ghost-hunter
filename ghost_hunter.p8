@@ -10,9 +10,9 @@ debug_bounds=false
 sprites={}
 cell_size=8
 row_size=16
-big_size=16
 big_size=32
 big_size=8
+big_size=16
 start_ghosts=13
 scalar=big_size/cell_size
 function _init()
@@ -338,7 +338,7 @@ function player_new()
 		if self:focus() and btnp(🅾️) then
 			if self.cool_down_cmd==0 then
 				self.cool_down_cmd=begin_cool_down
-				ghosts_command()
+				ghosts_command(self.cmd_target)
 			end
 		end
 
@@ -581,9 +581,10 @@ function player_new()
 			x+=big_size+b
 		end
 		self.cmd_target={
-			x=x,
-			y=y,
-			r=r,
+			x1=x,
+			y1=y,
+			x2=x+r,
+			y2=y+r/2,
 		}
 	end
 
@@ -902,8 +903,7 @@ function ghost_new(x0,y0,num)
 		draw_shadow_line(a,b,n,x,y)
 	end
 
-	function ghost:action(cx,cy)
-
+	function ghost:action(x1,y1,x2,y2)
 	end
 
 	function ghost:die()
@@ -915,12 +915,15 @@ function ghost_new(x0,y0,num)
 end
 
 ghosts={}
-function ghosts_command(cx,cy)
+function ghosts_command(target)
 	local m=#ghosts
 	if m>0 and ghost_selected<=m then
+		local x1=target.x1
+		local y1=target.y1
+		local x2=target.x2
+		local y2=target.y2
 		local ghost=ghosts[ghost_selected]
-		ghost:action()
-		ghost:die()
+		ghost:action(x1,y1,x2,y2)
 		update_ghosts()
 	end
 end
@@ -1366,24 +1369,13 @@ function cemetary_init()
 	end
 
 	function world:draw_lantern_light()
-		--[[
-		if player:dig() then return end
-		local b=player.hold_light
-		local x=player.x
-		local y=player.y+big_size+player.ty/4
-		local r=big_size*3-player.ty
-		if player.turned then
-			x-=big_size*3+1-player.ty+b
-		else
-			x+=big_size+b
-		end
-		]]
 		local c=player.cmd_target
-		local x=c.x
-		local y=c.y
-		local r=c.r
+		local x1=c.x1
+		local y1=c.y1
+		local x2=c.x2
+		local y2=c.y2
 		clip(0,horizon,128,128-horizon)
-		ovalfill(x,y,x+r,y+r/2,14)
+		ovalfill(x1,y1,x2,y2,14)
 		clip()
 	end
 
