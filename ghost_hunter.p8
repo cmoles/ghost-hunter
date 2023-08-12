@@ -3,17 +3,17 @@ version 41
 __lua__
 --main
 debug=true
---debug=false
+debug=false
 debug_bounds=false
 --debug_bounds=true
 
 sprites={}
 cell_size=8
 row_size=16
-big_size=32
 big_size=16
+big_size=32
 big_size=8
-start_ghosts=6
+start_ghosts=13
 scalar=big_size/cell_size
 function _init()
 	ready_game=true
@@ -107,7 +107,7 @@ function update_sprites()
 end
 
 function draw_sprites()
-	clip(0,64,128,64)
+	clip(0,horizon,128,128-horizon)
 	foreach(sprites,function(sprite)
 		sprite:draw_shadow()
 	end)
@@ -505,16 +505,34 @@ function player_new()
 		local y1=self.queue.y1
 		local x2=self.queue.x2
 		local y2=self.queue.y2
-		if not self.turned then
-			a=-1*big_size*m/2
-		else
-			a=big_size*m/2
-		end
 		local f=1/(m)
-		x1+=a*cos(n*f+tt/100)
-		x2+=a*cos(n*f+tt/100)
-		y1+=a*sin(n*f+tt/100)
-		y2+=a*sin(n*f+tt/100)
+
+		local b=60/m*2
+		local c=.15
+
+		local dx,dy,angle
+		if not self.turned then
+			a=-1*big_size*sqrt(m)/2
+			dx=cos(n*f+tt/b*f)
+			dy=sin(n*f+tt/b*f)
+			angle=atan2(-dx,-dy)
+			angle+=c
+		else
+			a=big_size*sqrt(m)/2
+			dx=cos(n*f-tt/b*f)
+			dy=sin(n*f-tt/b*f)
+			angle=atan2(dx,dy)
+			angle+=(.5-c)
+		end
+		angle=angle%1
+		local selected=angle<1/m
+		if selected then
+			ghost_selected=n+1
+		end
+		x1+=a*dx
+		x2+=a*dx
+		y1+=a*dy
+		y2+=a*dy
 		return {
 			x1=x1,
 			y1=y1,
@@ -522,6 +540,7 @@ function player_new()
 			y2=y2,
 			x=(x1+x2)/2,
 			y=(y1+y2)/2,
+			selected=selected,
 		}
 	end
 
@@ -723,6 +742,7 @@ end
 ghost_float_freq=1/100
 ghost_float_amp=2
 ghost_float_disp=10
+ghost_selected=1
 
 function ghost_new(x0,y0,num)
 	local ghost={
@@ -745,6 +765,8 @@ function ghost_new(x0,y0,num)
 		x2=x0+big_size,
 		y1=y0,
 		y2=y0+big_size*2,
+		state='return',
+		selected=false,
 	}
 
 	function ghost:update()
@@ -754,8 +776,16 @@ function ghost_new(x0,y0,num)
 	end
 
 	function ghost:draw()
+		if debug and ghost.selected then
+			pal(7,12)
+			pal(7,13)
+			pal(7,8)
+		end
 		ghost:draw_head()
 		ghost:draw_body()
+		pal()
+		palt(0,false)
+		palt(1,true)
 	end
 
 	function ghost:move()
@@ -781,6 +811,8 @@ function ghost_new(x0,y0,num)
 		local angle=atan2(q.x-sx,q.y-sy)
 		ghost.dx=cos(angle)*min(a,ghost.dist)
 		ghost.dy=sin(angle)*min(a*y_scalar,ghost.dist)
+		ghost.angle=angle
+		ghost.selected=q.selected
 	end
 
 	function ghost:update_bounds()
@@ -850,6 +882,10 @@ function ghost_new(x0,y0,num)
 		draw_shadow_line(a,b,n,x,y)
 	end
 
+	function ghost:attack()
+
+	end
+
 	function ghost:die()
 		del(sprites,ghost)
 		del(ghosts,ghost)
@@ -860,8 +896,10 @@ end
 
 ghosts={}
 function ghosts_command()
-	if #ghosts>0 then
-		local ghost=ghosts[1]
+	local m=#ghosts
+	if m>0 and ghost_selected<=m then
+		local ghost=ghosts[ghost_selected]
+		--ghost:attack()
 		ghost:die()
 		update_ghosts()
 	end
