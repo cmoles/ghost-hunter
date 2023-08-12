@@ -3,17 +3,17 @@ version 41
 __lua__
 --main
 debug=true
-debug=false
+--debug=false
 debug_bounds=false
 --debug_bounds=true
 
 sprites={}
 cell_size=8
 row_size=16
-big_size=32
 big_size=8
+big_size=32
 big_size=16
-start_ghosts=13
+start_ghosts=1
 scalar=big_size/cell_size
 function _init()
 	ready_game=true
@@ -219,13 +219,14 @@ function player_new()
 		frame_shovel_top_ready=55,
 		frame_shovel_bottom_ready=54,
 		boost=-1.7*scalar,
-		vy=0,
-		ty=0,
+		dz=0,
+		sz=0,
 		hold_jump=0,
 		hold_light=0,
 		cool_down_dig=0,
 		cool_down_cmd=0,
 		state="idle",
+		surface=0,
 	}
 
 	function self:init()
@@ -239,6 +240,7 @@ function player_new()
 		self.tt=inc_tt(self.tt)
 		self:get_input()
 		self:limit_speed()
+		self:apply_gravity()
 		self:collision()
 		self:move()
 		self:animate()
@@ -329,7 +331,7 @@ function player_new()
 				self.hold_light=min(10,self.hold_jump+1)
 			elseif self.hold_jump>0 then
 				local a=mid(.5,self.hold_jump/5,1.2)
-				self.vy=a*self.boost
+				self.dz=a*self.boost
 				self.hold_jump=0
 				self.state="jump"
 			end
@@ -345,11 +347,6 @@ function player_new()
 		if self:jump() then
 			self.hold_light=max(0,self.hold_light-1)
 		end
-
-		if self.ty<0 then
-			self.vy+=gravity
-		end
-
 	end
 
 	function self:get_dig_input()
@@ -391,6 +388,14 @@ function player_new()
 		end
 	end
 
+	function self:apply_gravity()
+		if self.sz<self.surface then
+			--print(self.surface)
+			--assert(self.surface==0)
+			self.dz+=gravity
+		end
+	end
+
 	function self:collision()
 		self:collision_floor()
 		self:collision_map()
@@ -398,11 +403,16 @@ function player_new()
 	end
 
 	function self:collision_floor()
-		if self.vy>0 and self.ty>=0 and self:jump() then
-			self.ty=0
-			self.vy=0
-			self.state="idle"
+		if self.dz>0 and self.sz>self.surface and self:jump() then
+			self:land(self.surface)
 		end
+	end
+
+	function self:land(surface)
+		self.surface=surface
+		self.sz=surface
+		self.dz=0
+		self.state="idle"
 	end
 
 	function self:get_move_boundary(dx,dy)
@@ -418,27 +428,28 @@ function player_new()
 		local dx,dy=self.dx,self.dy
 		local b1=self:get_move_boundary(0,dy)
 		local c1=cemetary:collision(b1)
-		if c1<self.ty then
+		if c1<self.sz then
 			dy=0
 		end
 		local b2=self:get_move_boundary(dx,dy)
 		local c2=cemetary:collision(b2)
-		if c2<self.ty then
+		if c2<self.sz then
 			dx=0
 		end
-		if dx==0 and dy==0 then
-			local c3=cemetary:collision(self:get_move_boundary(0,0))
-			if c3<self.ty and self.dy>=0 then
-				return
-			end
+		local b3=self:get_move_boundary(dx,dy)
+		local c3=cemetary:collision(b3)
+		if c3<self.sz then
+			self:land(c3)
+		else
+			self.dx,self.dy=dx,dy
+			self.surface=c3
 		end
-		self.dx,self.dy=dx,dy
 	end
 
 	function self:move()
 		self.x+=self.dx
 		self.y+=self.dy
-		self.ty+=self.vy
+		self.sz+=self.dz
 		self:update_bounds()
 		self:update_queue()
 		self:update_dig_target()
@@ -573,10 +584,10 @@ function player_new()
 	function self:update_cmd_target()
 		local b=player.hold_light
 		local x=player.x
-		local y=player.y+big_size+player.ty/4-2*scalar
-		local r=big_size*4-player.ty
+		local y=player.y+big_size+player.sz/4-2*scalar
+		local r=big_size*4-player.sz
 		if player.turned then
-			x-=big_size*4-player.ty+b+scalar
+			x-=big_size*4-player.sz+b+scalar
 		else
 			x+=big_size+b
 		end
@@ -593,7 +604,7 @@ function player_new()
 	end
 
 	function self:animate_body()
-		if self.ty<0 then
+		if self.sz<0 then
 			return
 		end
 		if self.dx==0 and self.dy==0 then
@@ -609,7 +620,7 @@ function player_new()
 	end
 
 	function self:draw_head()
-		local y=self.y+self.ty
+		local y=self.y+self.sz
 		if self.hold_jump>0 or self.cool_down_dig>begin_cool_down/2 then
 			y+=1*scalar
 		end
@@ -625,14 +636,14 @@ function player_new()
 	end
 
 	function self:draw_body()
-		local y=self.y+self.ty
+		local y=self.y+self.sz
 		zspr(self:get_frame_body(),self.x,y+big_size,self.turned)
 	end
 
 	function self:draw_lantern()
 		if self:dig() then return end
 		local x=self.x
-		local y=self.y+self.ty+big_size/2+scalar
+		local y=self.y+self.sz+big_size/2+scalar
 		if self.turned then
 			x-=big_size-scalar
 		else
@@ -666,7 +677,7 @@ function player_new()
 
 	function self:draw_shovel_idle()
 		local x=self.x
-		local y=self.y+self.ty-3*scalar
+		local y=self.y+self.sz-3*scalar
 		local a1=self.turned and self.cool_down_cmd==0
 		local b1=not self.turned and self.cool_down_cmd>0
 		local a2=self.turned and self.cool_down_cmd>0
@@ -684,7 +695,7 @@ function player_new()
 	function self:draw_shovel_ready()
 		local x=self.x
 		local x2=self.x
-		local y1=self.y+big_size
+		local y1=self.y+big_size+self.sz
 		if self.turned then
 			x+=big_size-5*scalar
 			x2+=-5*scalar
@@ -720,7 +731,7 @@ function player_new()
 	end
 
 	function self:draw_shadow()
-		if self.ty<0 then
+		if self.sz<0 then
 			local m=big_size/4
 			self:draw_shadow_line(-1,m)
 			self:draw_shadow_line(0,m)
@@ -742,7 +753,7 @@ function player_new()
 
 	function self:draw_shadow_line(n,m)
 		local a=scalar
-		local b=mid(big_size/4,self.ty*a/self.boost,big_size/2)
+		local b=mid(big_size/4,self.sz*a/self.boost,big_size/2)
 		local x=self.x+m
 		local y=self.y+2*(big_size)
 
@@ -1328,7 +1339,7 @@ function cemetary_init()
 		foreach(world.graves,function(grave)
 			local b=get_tombstone_boundary(grave)
 			if collision(b,p) then
-				h=grave.h
+				h=grave.h*scalar
 			end
 		end)
 		return h
@@ -1435,8 +1446,8 @@ end
 function get_tombstone_boundary(g)
 	local x1=g.x
 	local x2=g.x+big_size
-	local y1=g.y+2*big_size-bound_height
-	local y2=g.y+2*big_size-scalar
+	local y1=g.y+2*big_size-scalar
+	local y2=g.y+2*big_size
 	assert(y2>y1)
 	return {
 		x1=x1,
