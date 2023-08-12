@@ -573,10 +573,10 @@ function player_new()
 	function self:update_cmd_target()
 		local b=player.hold_light
 		local x=player.x
-		local y=player.y+big_size+player.ty/4
-		local r=big_size*3-player.ty
+		local y=player.y+big_size+player.ty/4-2*scalar
+		local r=big_size*4-player.ty
 		if player.turned then
-			x-=big_size*3+1-player.ty+b
+			x-=big_size*4-player.ty+b+scalar
 		else
 			x+=big_size+b
 		end
