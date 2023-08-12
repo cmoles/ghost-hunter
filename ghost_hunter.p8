@@ -159,7 +159,10 @@ function zspr(frame,x,y,flip_x,flip_y)
 end
 
 function bspr(frame,x,y,flip_x,flip_y)
-	spr(frame,x,y,4,4,flip_x,flip_y)
+	local sx=flr(frame%row_size)*cell_size
+	local sy=flr(frame/row_size)*cell_size
+
+	sspr(sx,sy,cell_size*4,cell_size*4,x,y,big_size*4,big_size*4,flip_x,flip_y)
 end
 
 function zset(x,y,c)
@@ -1159,10 +1162,11 @@ end
 cemetary={}
 
 horizon=64
+moon_r=16*sqrt(scalar)
 moon_x=96
-moon_y=20
-moon_r=16
-num_stars=100
+moon_y=20-10*(scalar-1)
+
+num_stars=100/scalar
 num_clouds=2
 cloud_div=(128+32)/num_clouds
 num_grave_cols=12
@@ -1213,8 +1217,6 @@ function cemetary_init()
 			x=cdx,
 			y=rnd_cloud_y(),
 			dx=rnd_cloud_dx(),
-			--dx=rnd(1)+1,
-			--dx=1,
 			frame=70,
 		})
 	end
@@ -1297,11 +1299,8 @@ function cemetary_init()
 
 		world:draw_lantern_light()
 
-		--draw moon
-		circfill(moon_x,moon_y,moon_r,14)
-		circfill(moon_x+5,moon_y-5,moon_r,1)
-
 		world:draw_stars()
+		world:draw_moon()
 		world:draw_clouds()
 
 		--world:draw_cemetary()
@@ -1333,6 +1332,11 @@ function cemetary_init()
 
 	function world:draw_stars()
 		foreach(world.stars,draw_star)
+	end
+
+	function world:draw_moon()
+		circfill(moon_x,moon_y,moon_r,14)
+		circfill(moon_x+sqrt(25*scalar),moon_y-sqrt(25*scalar),moon_r,1)
 	end
 
 	return world
@@ -1417,11 +1421,11 @@ function update_cloud(c)
 end
 
 function rnd_cloud_y()
-	return flr(rnd(15))+4
+	return moon_y-moon_r*sqrt(scalar+1)-rnd(scalar*2)-big_size/2
 end
 
 function rnd_cloud_dx()
-	return rnd(1)/4+0.25
+	return rnd(1)/4*sqrt(scalar)+0.25*sqrt(scalar)
 end
 
 function draw_cloud(c)
@@ -1429,7 +1433,7 @@ function draw_cloud(c)
 end
 
 function draw_star(s)
-	pset(s.x,s.y,7)
+	zset(s.x,s.y,7)
 end
 __gfx__
 00000000118888881188888811888888119911110000000011181111000000000000000011111111111111111115511111111111111111110000000000000000
