@@ -4,6 +4,8 @@ __lua__
 --main
 debug=true
 debug=false
+debug_bounds=false
+--debug_bounds=true
 
 sprites={}
 cell_size=8
@@ -31,8 +33,15 @@ function start_game()
 	player:init()
 	add(sprites,player)
 
-	local start_pt1={x=rnd(64)+32,y=rnd(64)+32}
-	init_ghost(start_pt1)
+	local n=1
+	if debug then
+		n=3
+	end
+
+	for i=1,n do
+		local start_pt={x=rnd(64)+32,y=rnd(64)+32}
+		init_ghost(start_pt)
+	end
 
 	_update=game_update
 	_draw=game_draw
@@ -108,7 +117,7 @@ function draw_sprites()
 	foreach(sprites,function(sprite)
 		sprite:draw()
 	end)
-	if debug then
+	if debug and debug_bounds then
 		foreach(sprites,function(sprite)
 			sprite:draw_boundary()
 		end)
@@ -186,6 +195,8 @@ gravity=0.2*scalar
 player_max_speed=1.5*scalar
 y_scalar=.5*scalar
 begin_cool_down=10
+bound_width=4*scalar
+bound_height=2*scalar
 
 function player_new()
 	local x0,y0=47,90
@@ -379,7 +390,7 @@ function player_new()
 
 	function self:collision()
 		self:collision_floor()
-		--self:collision_map()
+		self:collision_map()
 		--self:collision_sprites()
 	end
 
@@ -391,15 +402,26 @@ function player_new()
 		end
 	end
 
+	function self:get_move_boundary(dx,dy)
+		return {
+			x1=self.x1+dx,
+			y1=self.y1+dy,
+			x2=self.x2+dx,
+			y2=self.y2+dy
+		}
+	end
+
 	function self:collision_map()
-		local x1=flr(self.x/cell_size)
-		local y1=flr(self.y/cell_size)
-		local x2=flr((self.x+big_size-1)/cell_size)
-		local y2=flr((self.y+big_size-1)/cell_size)
-		local x3=flr((self.x+big_size-1)/cell_size)
-		local y3=flr(self.y/cell_size)
-		local x4=flr(self.x/cell_size)
-		local y4=flr((self.y+big_size-1)/cell_size)
+		local b1=self:get_move_boundary(0,self.dy)
+		local c1=cemetary:collision(b1)
+		if c1>0 then
+			self.dy=0
+		end
+		local b2=self:get_move_boundary(self.dx,self.dy)
+		local c2=cemetary:collision(b2)
+		if c2>0 then
+			self.dx=0
+		end
 	end
 
 	function self:move()
@@ -412,10 +434,16 @@ function player_new()
 	end
 
 	function self:update_bounds()
-		self.x1=self.x
-		self.x2=self.x+big_size
-		self.y1=self.y+big_size*2-scalar
-		self.y2=self.y+big_size*2+scalar
+		local x1=self.x
+		local y1=self.y+big_size
+		local x2=self.x+big_size
+		local y2=self.y+2*big_size
+		local x=(x2+x1)/2
+		local y=(y2+y1)/2
+		self.x1=x-bound_width/2
+		self.y1=y+bound_height
+		self.x2=x+bound_width/2
+		self.y2=y+bound_height+scalar
 	end
 
 	function self:update_target()
@@ -1094,6 +1122,7 @@ end
 
 cemetary={}
 
+horizon=64
 moon_x=96
 moon_y=20
 moon_r=16
@@ -1117,14 +1146,15 @@ function cemetary_init()
 			local f=rnd({10,11,12,13})
 			local d=rnd({26,27,28,29})
 			if on_path(j,k) then
-			elseif rnd(1)<0.3 then
+			elseif rnd(1)<0.4 then
 			else
 				add(world.graves,{
 					f=f,
 					x=x,
 					y=y,
 					d=d,
-					open=rnd(1)<0.2,
+					--open=rnd(1)<0.2,
+					open=false,
 					update=update_grave,
 					draw=draw_grave,
 					draw_boundary=draw_grave_boundary,
@@ -1184,6 +1214,24 @@ function cemetary_init()
 		end
 	end
 
+	function world:collision(p)
+		if p.y1<horizon then
+			return 1
+		end
+		return world:hit_tombstone(p)
+	end
+
+	function world:hit_tombstone(p)
+		local c=0
+		foreach(world.graves,function(grave)
+			local b=get_tombstone_boundary(grave)
+			if collision(b,p) then
+				c+=1
+			end
+		end)
+		return c
+	end
+
 	function world:get_grave(cx,cy)
 		local g=nil
 		foreach(world.graves,function(grave)
@@ -1207,7 +1255,7 @@ function cemetary_init()
 		cls(1)
 
 		--draw ground
-		rectfill(0,64,128,128,2)
+		rectfill(0,horizon,128,128,2)
 
 		world:draw_lantern_light()
 
@@ -1232,7 +1280,7 @@ function cemetary_init()
 		else
 			x+=big_size+b
 		end
-		clip(0,64,128,64)
+		clip(0,horizon,128,128-horizon)
 		ovalfill(x,y,x+r,y+r/2,14)
 		clip()
 	end
@@ -1280,12 +1328,27 @@ function open_grave(g)
 	end
 end
 
+function get_tombstone_boundary(g)
+	local x1=g.x
+	local x2=g.x+big_size
+	local y1=g.y+2*big_size-bound_height
+	local y2=g.y+2*big_size-scalar
+	assert(y2>y1)
+	return {
+		x1=x1,
+		y1=y1,
+		x2=x2,
+		y2=y2,
+	}
+end
+
 function draw_grave_boundary(g)
-	local x1=g.x1
-	local x2=g.x2
-	local y1=g.y1
-	local y2=g.y2
-	rectfill(x1,y1,x2,y2,8)
+	local b=get_tombstone_boundary(g)
+	--print(b.x1..","..b.y1)
+	--print(b.x2.." "..b.y2)
+	assert(b.y2>b.y1)
+	rectfill(b.x1,b.y1,b.x2,b.y2,8)
+	rectfill(unpack(b),8)
 end
 
 function draw_grave_shadow(g)
