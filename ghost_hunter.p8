@@ -412,16 +412,24 @@ function player_new()
 	end
 
 	function self:collision_map()
-		local b1=self:get_move_boundary(0,self.dy)
+		local dx,dy=self.dx,self.dy
+		local b1=self:get_move_boundary(0,dy)
 		local c1=cemetary:collision(b1)
-		if c1>0 then
-			self.dy=0
+		if c1<self.ty then
+			dy=0
 		end
-		local b2=self:get_move_boundary(self.dx,self.dy)
+		local b2=self:get_move_boundary(dx,dy)
 		local c2=cemetary:collision(b2)
-		if c2>0 then
-			self.dx=0
+		if c2<self.ty then
+			dx=0
 		end
+		if dx==0 and dy==0 then
+			local c3=cemetary:collision(self:get_move_boundary(0,0))
+			if c3<self.ty and self.dy>=0 then
+				return
+			end
+		end
+		self.dx,self.dy=dx,dy
 	end
 
 	function self:move()
@@ -1145,6 +1153,7 @@ function cemetary_init()
 			local y=50+12*k*scalar
 			local f=rnd({10,11,12,13})
 			local d=rnd({26,27,28,29})
+			local h=grave_height(f)
 			if on_path(j,k) then
 			elseif rnd(1)<0.4 then
 			else
@@ -1153,6 +1162,7 @@ function cemetary_init()
 					x=x,
 					y=y,
 					d=d,
+					h=h,
 					--open=rnd(1)<0.2,
 					open=false,
 					update=update_grave,
@@ -1216,20 +1226,20 @@ function cemetary_init()
 
 	function world:collision(p)
 		if p.y1<horizon then
-			return 1
+			return -1000
 		end
 		return world:hit_tombstone(p)
 	end
 
 	function world:hit_tombstone(p)
-		local c=0
+		local h=0
 		foreach(world.graves,function(grave)
 			local b=get_tombstone_boundary(grave)
 			if collision(b,p) then
-				c+=1
+				h=grave.h
 			end
 		end)
-		return c
+		return h
 	end
 
 	function world:get_grave(cx,cy)
@@ -1314,6 +1324,11 @@ function on_path(j,k)
 		end
 	end
 	return false
+end
+
+function grave_height(f)
+	local h_list={7,8,7,4}
+	return -1*h_list[f-9]
 end
 
 function update_grave(g)
