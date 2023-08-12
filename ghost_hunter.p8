@@ -231,6 +231,8 @@ function player_new()
 	function self:init()
 		self:update_bounds()
 		self:update_queue()
+		self:update_dig_target()
+		self:update_cmd_target()
 	end
 	
 	function self:update()
@@ -438,8 +440,9 @@ function player_new()
 		self.y+=self.dy
 		self.ty+=self.vy
 		self:update_bounds()
-		self:update_target()
 		self:update_queue()
+		self:update_dig_target()
+		self:update_cmd_target()
 	end
 
 	function self:update_bounds()
@@ -453,27 +456,6 @@ function player_new()
 		self.y1=y+bound_height
 		self.x2=x+bound_width/2
 		self.y2=y+bound_height+scalar
-	end
-
-	function self:update_target()
-		if self.turned then
-			self.target={
-				x1=self.x1-big_size/2-scalar,
-				x2=self.x2-big_size-scalar,
-				y1=self.y1,
-				y2=self.y2,
-			}
-		else
-			self.target={
-				x1=self.x1+big_size,
-				x2=self.x2+big_size/2,
-				y1=self.y1,
-				y2=self.y2,
-			}
-		end
-		local sb=self.target
-		self.target.x=(sb.x1+sb.x2)/2
-		self.target.y=(sb.y1+sb.y2)/2
 	end
 
 	function self:update_queue()
@@ -564,6 +546,44 @@ function player_new()
 			y2=y2,
 			x=x,
 			y=y,
+		}
+	end
+
+	function self:update_dig_target()
+		if self.turned then
+			self.dig_target={
+				x1=self.x1-big_size/2-scalar,
+				x2=self.x2-big_size-scalar,
+				y1=self.y1,
+				y2=self.y2,
+			}
+		else
+			self.dig_target={
+				x1=self.x1+big_size,
+				x2=self.x2+big_size/2,
+				y1=self.y1,
+				y2=self.y2,
+			}
+		end
+		local sb=self.dig_target
+		self.dig_target.x=(sb.x1+sb.x2)/2
+		self.dig_target.y=(sb.y1+sb.y2)/2
+	end
+
+	function self:update_cmd_target()
+		local b=player.hold_light
+		local x=player.x
+		local y=player.y+big_size+player.ty/4
+		local r=big_size*3-player.ty
+		if player.turned then
+			x-=big_size*3+1-player.ty+b
+		else
+			x+=big_size+b
+		end
+		self.cmd_target={
+			x=x,
+			y=y,
+			r=r,
 		}
 	end
 
@@ -689,10 +709,10 @@ function player_new()
 		local x4=self.queue.x2
 		local y3=self.queue.y1
 		local y4=self.queue.y2
-		local x5=self.target.x1
-		local x6=self.target.x2
-		local y5=self.target.y1
-		local y6=self.target.y2
+		local x5=self.dig_target.x1
+		local x6=self.dig_target.x2
+		local y5=self.dig_target.y1
+		local y6=self.dig_target.y2
 		rectfill(x1,y1,x2,y2,8)
 		rectfill(x3,y3,x4,y4,10)
 		rectfill(x5,y5,x6,y6,11)
@@ -882,7 +902,7 @@ function ghost_new(x0,y0,num)
 		draw_shadow_line(a,b,n,x,y)
 	end
 
-	function ghost:attack()
+	function ghost:action(cx,cy)
 
 	end
 
@@ -895,11 +915,11 @@ function ghost_new(x0,y0,num)
 end
 
 ghosts={}
-function ghosts_command()
+function ghosts_command(cx,cy)
 	local m=#ghosts
 	if m>0 and ghost_selected<=m then
 		local ghost=ghosts[ghost_selected]
-		--ghost:attack()
+		ghost:action()
 		ghost:die()
 		update_ghosts()
 	end
@@ -1274,10 +1294,10 @@ function cemetary_init()
 	end
 
 	function world:try_dig()
-		local x1=player.target.x1
-		local y1=player.target.y1
-		local x2=player.target.x2
-		local y2=player.target.y2
+		local x1=player.dig_target.x1
+		local y1=player.dig_target.y1
+		local x2=player.dig_target.x2
+		local y2=player.dig_target.y2
 		local cx=(x1+x2)/2
 		local cy=(y1+y2)/2
 		local g=world:get_grave(cx,cy)
@@ -1346,6 +1366,7 @@ function cemetary_init()
 	end
 
 	function world:draw_lantern_light()
+		--[[
 		if player:dig() then return end
 		local b=player.hold_light
 		local x=player.x
@@ -1356,6 +1377,11 @@ function cemetary_init()
 		else
 			x+=big_size+b
 		end
+		]]
+		local c=player.cmd_target
+		local x=c.x
+		local y=c.y
+		local r=c.r
 		clip(0,horizon,128,128-horizon)
 		ovalfill(x,y,x+r,y+r/2,14)
 		clip()
