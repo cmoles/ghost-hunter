@@ -3,13 +3,13 @@ version 41
 __lua__
 --main
 debug=true
---debug=false
+debug=false
 debug_bounds=false
 --debug_bounds=true
 debug_select=false
 --debug_select=true
 debug_print_ghost_num=false
-debug_print_ghost_num=true
+--debug_print_ghost_num=true
 
 sprites={}
 cell_size=8
@@ -264,6 +264,7 @@ function player_new()
 		self:update_queue()
 		self:update_dig_target()
 		self:update_cmd_target()
+		update_camera(self.x1,self.y1,self.x2,self.y2)
 	end
 	
 	function self:update()
