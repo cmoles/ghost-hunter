@@ -14,10 +14,10 @@ debug_print_ghost_num=true
 sprites={}
 cell_size=8
 row_size=16
-big_size=16
-big_size=32
 big_size=8
-start_ghosts=13
+big_size=32
+big_size=16
+start_ghosts=5
 scalar=big_size/cell_size
 function _init()
 	ready_game=true
@@ -349,7 +349,7 @@ function player_new()
 		if self:focus() and btnp(🅾️) then
 			if self.cool_down_cmd==0 then
 				self.cool_down_cmd=begin_cool_down
-				ghosts_command(self.cmd_target)
+				ghosts_command()
 			end
 		end
 
@@ -824,8 +824,12 @@ function ghost_new(x0,y0,num)
 		return ghost.state=='follow'
 	end
 
-	function ghost:hold()
-		return ghost.state=='hold'
+	function ghost:track()
+		return ghost.state=='track'
+	end
+
+	function ghost:find()
+		return ghost.state=='find'
 	end
 
 	function ghost:draw()
@@ -846,8 +850,10 @@ function ghost_new(x0,y0,num)
 			ghost:recall_to_player()
 		elseif ghost:follow() then
 			ghost:follow_player()
-		elseif ghost:hold() then
-			ghost:hold_target()
+		elseif ghost:track() then
+			ghost:track_target()
+		elseif ghost:find() then
+			ghost:find_target()
 		else
 			assert(false)
 		end
@@ -873,8 +879,13 @@ function ghost_new(x0,y0,num)
 		ghost:move_to()
 	end
 
-	function ghost:hold_target()
-		ghost.state='hold'
+	function ghost:track_target()
+		ghost.state='track'
+		ghost:move_to()
+	end
+
+	function ghost:find_target()
+		ghost.state='find'
 		ghost:move_to()
 	end
 
@@ -883,26 +894,16 @@ function ghost_new(x0,y0,num)
 		local a=player_max_speed
 		if ghost:recall() and dist<a then
 			ghost:add_to_queue()
-		elseif ghost:hold() and ghost.cool_down==0 then
-			if ghost.target.subscribe then
-				ghost.target:subscribe(ghost)
-			end
+		elseif ghost:track() and ghost.cool_down==0 then
+			ghost.target:unsubscribe(ghost)
+			ghost:recall_to_player()
+		elseif ghost:find() and ghost.cool_down==0 then
 			ghost:recall_to_player()
 		else
 			local q=ghost.target
-			local x=q.x
-			local y=q.y
-			--local x=(q.x1+q.x2)/2
-			--local y=(q.y1+q.y2)/2
-			--assert(q.x1)
-			--assert(q.x2)
-			--assert(q.y1)
-			--assert(q.y2)
-			--assert(q.x)
-			--assert(q.y)
 			local sx=(ghost.x1+ghost.x2)/2
 			local sy=(ghost.y1+ghost.y2)/2
-			local angle=atan2(x-sx,y-sy)
+			local angle=atan2(q.x-sx,q.y-sy)
 			ghost.dx=cos(angle)*min(a,dist)
 			ghost.dy=sin(angle)*min(a*y_scalar,dist)
 			ghost.angle=angle
@@ -1011,16 +1012,17 @@ function ghost_new(x0,y0,num)
 		draw_shadow_line(a,b,n,x,y)
 	end
 
-	function ghost:action(target)
-		local enemy=rnd(get_enemy_target_select(target))
-		ghost.state='hold'
+	function ghost:action()
+		local enemy=rnd(get_enemy_target_select())
 
 		if enemy then
+			ghost.state='track'
 			enemy:subscribe(ghost)
 			ghost.target=enemy
 			ghost.cool_down=ghost_cool_down
 		else
-			ghost.target=target
+			ghost.state='find'
+			ghost.target=player.cmd_target
 			ghost.cool_down=ghost_cool_down
 		end
 	end
@@ -1032,12 +1034,13 @@ function ghost_new(x0,y0,num)
 
 	function ghost:on_notify(event,target)
 		if event=='death' then
-			if ghost:hold() then
-				ghost.state='recall'
+			if not ghost:follow() then
+				ghost:recall_to_player()
 			end
-			ghost.target=nil
 		elseif event=='move' then
-			ghost.target=target
+			if ghost:track() then
+				ghost.target=target
+			end
 		else
 			print(event)
 			assert(false)
@@ -1048,12 +1051,12 @@ function ghost_new(x0,y0,num)
 end
 
 ghosts={}
-function ghosts_command(target)
+function ghosts_command()
 	local m=#ghosts
 	if m>0 and ghost_selected<=m then
 		local ghost=ghosts[ghost_selected]
 		del(ghosts,ghost)
-		ghost:action(target)
+		ghost:action()
 		update_ghosts()
 	end
 end
@@ -1170,7 +1173,7 @@ function skeleton_new(x0,y0)
 		skeleton.x2=x2
 		skeleton.y1=y1
 		skeleton.y2=y2
-		skeleton:notify("move",{x1=x1,x2=x2,y1=y1,y2=y2,x=(x1+x2)/2,y=(y1+y2)/2})
+		skeleton:notify("move",skeleton)
 	end
 
 	function skeleton:collision()
@@ -1373,13 +1376,14 @@ function skeleton_new(x0,y0)
 end
 
 enemies={}
-function get_enemy_target_select(target)
+function get_enemy_target_select()
+	local target=player.cmd_target
 	local enemy_select={}
-	foreach(enemies,function(enemy)
+	for enemy in all(enemies) do
 		if collision(target,enemy) then
 			add(enemy_select,enemy)
 		end
-	end)
+	end
 	return enemy_select
 end
 -->8
