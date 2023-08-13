@@ -470,41 +470,29 @@ function player_new()
 		local y1=self.y+big_size
 		local x2=self.x+big_size
 		local y2=self.y+2*big_size
-		local x=(x2+x1)/2
-		local y=(y2+y1)/2
-		self.x1=x-bound_width/2
-		self.y1=y+bound_height
-		self.x2=x+bound_width/2
-		self.y2=y+bound_height+scalar
+		local w=(x2+x1)/2
+		local h=(y2+y1)/2
+		self.x1=w-bound_width/2
+		self.y1=h+bound_height
+		self.x2=w+bound_width/2
+		self.y2=h+bound_height+scalar
 	end
 
 	function self:update_queue()
 		local m=#ghosts
 		if self.turned then
-			local x1=self.x1+big_size*m/4+big_size
-			local x2=self.x2+big_size*m/4+big_size
-			local y1=self.y1-big_size
-			local y2=self.y2-big_size
 			self.queue={
-				x1=x1,
-				x2=x2,
-				y1=y1,
-				y2=y2,
-				x=(x1+x2)/2,
-				y=(y1+y2)/2,
+				x1=self.x1+big_size*m/4+big_size,
+				x2=self.x2+big_size*m/4+big_size,
+				y1=self.y1-big_size,
+				y2=self.y2-big_size,
 			}
 		else
-			local x1=self.x1-big_size*m/4-big_size
-			local x2=self.x2-big_size*m/4-big_size
-			local y1=self.y1-big_size
-			local y2=self.y2-big_size
 			self.queue={
-				x1=x1,
-				x2=x2,
-				y1=y1,
-				y2=y2,
-				x=(x1+x2)/2,
-				y=(y1+y2)/2,
+				x1=self.x1-big_size*m/4-big_size,
+				x2=self.x2-big_size*m/4-big_size,
+				y1=self.y1-big_size,
+				y2=self.y2-big_size,
 			}
 		end
 	end
@@ -540,47 +528,29 @@ function player_new()
 		if selected then
 			ghost_selected=n+1
 		end
-		x1+=a*dx
-		x2+=a*dx
-		y1+=a*dy
-		y2+=a*dy
 		return {
-			x1=x1,
-			y1=y1,
-			x2=x2,
-			y2=y2,
-			x=(x1+x2)/2,
-			y=(y1+y2)/2,
+			x1=x1+a*dx,
+			x2=x2+a*dx,
+			y1=y1+a*dy,
+			y2=y2+a*dy,
 			selected=selected,
 		}
 	end
 
 	function self:update_dig_target()
 		if self.turned then
-			local x1=self.x1-big_size/2-scalar
-			local x2=self.x2-big_size-scalar
-			local y1=self.y1
-			local y2=self.y2
 			self.dig_target={
-				x1=x1,
-				x2=x2,
-				y1=y1,
-				y2=y2,
-				x=x,
-				y=y,
+				x1=self.x1-big_size/2-scalar,
+				x2=self.x2-big_size-scalar,
+				y1=self.y1,
+				y2=self.y2,
 			}
 		else
-			local x1=self.x1+big_size
-			local x2=self.x2+big_size/2
-			local y1=self.y1
-			local y2=self.y2
 			self.dig_target={
-				x1=x1,
-				x2=x2,
-				y1=y1,
-				y2=y2,
-				x=x,
-				y=y,
+				x1=self.x1+big_size,
+				x2=self.x2+big_size/2,
+				y1=self.y1,
+				y2=self.y2,
 			}
 		end
 	end
@@ -600,8 +570,6 @@ function player_new()
 			y1=y,
 			x2=x+r,
 			y2=y+r/2,
-			x=x+r/2,
-			y=y+r/4,
 		}
 	end
 
@@ -901,42 +869,16 @@ function ghost_new(x0,y0,num)
 			ghost:recall_to_player()
 		else
 			local q=ghost.target
+			local qx=(q.x1+q.x2)/2
+			local qy=(q.y1+q.y2)/2
 			local sx=(ghost.x1+ghost.x2)/2
 			local sy=(ghost.y1+ghost.y2)/2
-			local angle=atan2(q.x-sx,q.y-sy)
+			local angle=atan2(qx-sx,qy-sy)
 			ghost.dx=cos(angle)*min(a,dist)
 			ghost.dy=sin(angle)*min(a*y_scalar,dist)
 			ghost.angle=angle
 			ghost.selected=q.selected
 		end
-	end
-
-	function ghost:follow_player_old()
-		local dist=distance(ghost,player:get_rotation(ghost.n))
-		local a=player_max_speed
-		local q=player:get_rotation(ghost.n)
-		local sx=(ghost.x1+ghost.x2)/2
-		local sy=(ghost.y1+ghost.y2)/2
-		local angle=atan2(q.x-sx,q.y-sy)
-		ghost.dx=cos(angle)*min(a,dist)
-		ghost.dy=sin(angle)*min(a*y_scalar,dist)
-		ghost.angle=angle
-		ghost.selected=q.selected
-	end
-
-	function ghost:move_to_target()
-		local dist=distance(ghost,ghost.target)
-		local a=player_max_speed
-		local q=ghost.target
-		local sx=(ghost.x1+ghost.x2)/2
-		local sy=(ghost.y1+ghost.y2)/2
-		local tx=(q.x1+q.x2)/2
-		local ty=(q.y1+q.y2)/2
-		local angle=atan2(tx-sx,ty-sy)
-		ghost.dx=cos(angle)*min(a,dist)
-		ghost.dy=sin(angle)*min(a*y_scalar,dist)
-		ghost.angle=angle
-		ghost.selected=false
 	end
 
 	function ghost:add_to_queue()
