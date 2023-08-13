@@ -58,7 +58,9 @@ function start_screen()
 	_draw=start_draw
 end
 
+ptt=0
 function start_update()
+	ptt=inc_tt(ptt)
 	if btnp(🅾️) then
 		ready_game=false
 		_update=level_update
@@ -67,9 +69,25 @@ function start_update()
 end
 
 function start_draw()
+	camera()
 	cls()
+	print_title()
 	local message="press 🅾️ to start"
 	print(message,64-(#message*8)/4-2,64,7)
+end
+
+function print_title()
+	local title="ghost hunter"
+	local x0=64-(#title*8)/4
+	local y0=32
+	local dx=cos(ptt/10)*4
+	local dy=sin(ptt/10)*4
+	local w=#title
+	local h=0
+	print(title,x0,y0,10)
+	clip(x0+dx+4,y0+dy,x0+dx-2,y0+dy-1)
+	print(title,x0,y0,8)
+	clip()
 end
 
 function game_update()
