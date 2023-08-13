@@ -8,6 +8,8 @@ debug_bounds=false
 --debug_bounds=true
 debug_select=false
 --debug_select=true
+debug_print_ghost_num=false
+debug_print_ghost_num=true
 
 sprites={}
 cell_size=8
@@ -77,6 +79,9 @@ function game_draw()
 	palt(1,true)
 	cemetary:draw()
 	draw_sprites()
+	if debug_print_ghost_num then
+		print(#ghosts,0,0,8)
+	end
 end
 
 function over_update()
@@ -476,23 +481,32 @@ function player_new()
 	function self:update_queue()
 		local m=#ghosts
 		if self.turned then
+			local x1=self.x1+big_size*m/4+big_size
+			local x2=self.x2+big_size*m/4+big_size
+			local y1=self.y1-big_size
+			local y2=self.y2-big_size
 			self.queue={
-				x1=self.x1+big_size*m/4+big_size,
-				x2=self.x2+big_size*m/4+big_size,
-				y1=self.y1-big_size,
-				y2=self.y2-big_size,
+				x1=x1,
+				x2=x2,
+				y1=y1,
+				y2=y2,
+				x=(x1+x2)/2,
+				y=(y1+y2)/2,
 			}
 		else
+			local x1=self.x1-big_size*m/4-big_size
+			local x2=self.x2-big_size*m/4-big_size
+			local y1=self.y1-big_size
+			local y2=self.y2-big_size
 			self.queue={
-				x1=self.x1-big_size*m/4-big_size,
-				x2=self.x2-big_size*m/4-big_size,
-				y1=self.y1-big_size,
-				y2=self.y2-big_size,
+				x1=x1,
+				x2=x2,
+				y1=y1,
+				y2=y2,
+				x=(x1+x2)/2,
+				y=(y1+y2)/2,
 			}
 		end
-		local sb=self.queue
-		self.queue.x=(sb.x1+sb.x2)/2
-		self.queue.y=(sb.y1+sb.y2)/2
 	end
 
 	function self:get_rotation(n)
@@ -543,23 +557,32 @@ function player_new()
 
 	function self:update_dig_target()
 		if self.turned then
+			local x1=self.x1-big_size/2-scalar
+			local x2=self.x2-big_size-scalar
+			local y1=self.y1
+			local y2=self.y2
 			self.dig_target={
-				x1=self.x1-big_size/2-scalar,
-				x2=self.x2-big_size-scalar,
-				y1=self.y1,
-				y2=self.y2,
+				x1=x1,
+				x2=x2,
+				y1=y1,
+				y2=y2,
+				x=x,
+				y=y,
 			}
 		else
+			local x1=self.x1+big_size
+			local x2=self.x2+big_size/2
+			local y1=self.y1
+			local y2=self.y2
 			self.dig_target={
-				x1=self.x1+big_size,
-				x2=self.x2+big_size/2,
-				y1=self.y1,
-				y2=self.y2,
+				x1=x1,
+				x2=x2,
+				y1=y1,
+				y2=y2,
+				x=x,
+				y=y,
 			}
 		end
-		local sb=self.dig_target
-		self.dig_target.x=(sb.x1+sb.x2)/2
-		self.dig_target.y=(sb.y1+sb.y2)/2
 	end
 
 	function self:update_cmd_target()
@@ -852,7 +875,6 @@ function ghost_new(x0,y0,num)
 
 	function ghost:hold_target()
 		ghost.state='hold'
-		--ghost.target=player.cmd_target
 		ghost:move_to()
 	end
 
@@ -862,12 +884,25 @@ function ghost_new(x0,y0,num)
 		if ghost:recall() and dist<a then
 			ghost:add_to_queue()
 		elseif ghost:hold() and ghost.cool_down==0 then
+			if ghost.target.subscribe then
+				ghost.target:subscribe(ghost)
+			end
 			ghost:recall_to_player()
 		else
 			local q=ghost.target
+			local x=q.x
+			local y=q.y
+			--local x=(q.x1+q.x2)/2
+			--local y=(q.y1+q.y2)/2
+			--assert(q.x1)
+			--assert(q.x2)
+			--assert(q.y1)
+			--assert(q.y2)
+			--assert(q.x)
+			--assert(q.y)
 			local sx=(ghost.x1+ghost.x2)/2
 			local sy=(ghost.y1+ghost.y2)/2
-			local angle=atan2(q.x-sx,q.y-sy)
+			local angle=atan2(x-sx,y-sy)
 			ghost.dx=cos(angle)*min(a,dist)
 			ghost.dy=sin(angle)*min(a*y_scalar,dist)
 			ghost.angle=angle
@@ -982,9 +1017,10 @@ function ghost_new(x0,y0,num)
 
 		if enemy then
 			enemy:subscribe(ghost)
-			ghost.target={x1=enemy.x1,x2=enemy.x2,y1=enemy.y1,y2=enemy.y2,x=enemy.x,y=enemy.y}
+			ghost.target=enemy
+			ghost.cool_down=ghost_cool_down
 		else
-			ghost.target={x1=target.x1,x2=target.x2,y1=target.y1,y2=target.y2,x=target.x,y=target.y}
+			ghost.target=target
 			ghost.cool_down=ghost_cool_down
 		end
 	end
@@ -996,8 +1032,10 @@ function ghost_new(x0,y0,num)
 
 	function ghost:on_notify(event,target)
 		if event=='death' then
-			ghost.state='recall'
-			target:unsubscribe(ghost)
+			if ghost:hold() then
+				ghost.state='recall'
+			end
+			ghost.target=nil
 		elseif event=='move' then
 			ghost.target=target
 		else
@@ -1014,18 +1052,18 @@ function ghosts_command(target)
 	local m=#ghosts
 	if m>0 and ghost_selected<=m then
 		local ghost=ghosts[ghost_selected]
-		ghost:action(target)
 		del(ghosts,ghost)
+		ghost:action(target)
 		update_ghosts()
 	end
 end
 
 function update_ghosts()
 	local n=0
-	foreach(ghosts,function(ghost)
+	for ghost in all(ghosts) do
 		ghost.n=n
 		n+=1
-	end)
+	end
 end
 -->8
 --skeleton
@@ -1124,11 +1162,15 @@ function skeleton_new(x0,y0)
 	end
 
 	function skeleton:update_bounds()
-		skeleton.x1=skeleton.x
-		skeleton.x2=skeleton.x+big_size
-		skeleton.y1=skeleton.y+big_size*2-scalar
-		skeleton.y2=skeleton.y+big_size*2+scalar
-		skeleton:notify("move",{x1=skeleton.x1,x2=skeleton.x2,y1=skeleton.y1,y2=skeleton.y2})
+		local x1=skeleton.x
+		local x2=skeleton.x+big_size
+		local y1=skeleton.y+big_size*2-scalar
+		local y2=skeleton.y+big_size*2+scalar
+		skeleton.x1=x1
+		skeleton.x2=x2
+		skeleton.y1=y1
+		skeleton.y2=y2
+		skeleton:notify("move",{x1=x1,x2=x2,y1=y1,y2=y2,x=(x1+x2)/2,y=(y1+y2)/2})
 	end
 
 	function skeleton:collision()
@@ -1308,6 +1350,7 @@ function skeleton_new(x0,y0)
 
 	function skeleton:die()
 		skeleton:notify('death',skeleton)
+		skeleton.subscribers={}
 		del(sprites,skeleton)
 		del(enemies,skeleton)
 	end
@@ -1321,9 +1364,9 @@ function skeleton_new(x0,y0)
 	end
 
 	function skeleton:notify(event,data)
-		foreach(skeleton.subscribers,function(subscriber)
+		for subscriber in all(skeleton.subscribers) do
 			subscriber:on_notify(event,data)
-		end)
+		end
 	end
 	
 	return skeleton
