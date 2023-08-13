@@ -6,14 +6,16 @@ debug=true
 --debug=false
 debug_bounds=false
 --debug_bounds=true
+debug_select=false
+--debug_select=true
 
 sprites={}
 cell_size=8
 row_size=16
-big_size=8
-big_size=32
 big_size=16
-start_ghosts=1
+big_size=32
+big_size=8
+start_ghosts=13
 scalar=big_size/cell_size
 function _init()
 	ready_game=true
@@ -92,12 +94,14 @@ end
 
 function init_ghost(grave)
 	local ghost=ghost_new(grave.x,grave.y,#ghosts)
-	add(ghosts,ghost)
+	--add(ghosts,ghost)
 	add(sprites,ghost)
 end
 
 function init_skeleton(grave)
-	add(sprites,skeleton_new(grave.x,grave.y))
+	local skeleton=skeleton_new(grave.x,grave.y)
+	add(enemies,skeleton)
+	add(sprites,skeleton)
 end
 
 function update_sprites()
@@ -537,29 +541,6 @@ function player_new()
 		}
 	end
 
-	function self:get_queue(n)
-		local a=1
-		local x1=self.queue.x1
-		local y1=self.queue.y1
-		local x2=self.queue.x2
-		local y2=self.queue.y2
-		if not self.turned then
-			a=-1
-		end
-		x1+=a*(n-.5)*big_size
-		x2+=a*(n-.5)*big_size
-		local x=(x1+x2)/2
-		local y=(y1+y2)/2
-		return {
-			x1=x1,
-			y1=y1,
-			x2=x2,
-			y2=y2,
-			x=x,
-			y=y,
-		}
-	end
-
 	function self:update_dig_target()
 		if self.turned then
 			self.dig_target={
@@ -596,6 +577,8 @@ function player_new()
 			y1=y,
 			x2=x+r,
 			y2=y+r/2,
+			x=x+r/2,
+			y=y+r/4,
 		}
 	end
 
@@ -775,6 +758,8 @@ ghost_float_freq=1/100
 ghost_float_amp=2
 ghost_float_disp=10
 ghost_selected=1
+--ghost_cool_down=60
+ghost_cool_down=100
 
 function ghost_new(x0,y0,num)
 	local ghost={
@@ -785,7 +770,6 @@ function ghost_new(x0,y0,num)
 		dx=0,
 		dy=0,
 		tt=flr(rnd(1/ghost_float_freq)),
-		dist=128,
 		hover_p=0,
 		hover_y=0,
 		turned=false,
@@ -797,18 +781,32 @@ function ghost_new(x0,y0,num)
 		x2=x0+big_size,
 		y1=y0,
 		y2=y0+big_size*2,
-		state='return',
+		state='recall',
 		selected=false,
+		cool_down=0,
 	}
 
 	function ghost:update()
 		ghost.tt=inc_tt(ghost.tt)
+		ghost.cool_down=max(0,ghost.cool_down-1)
 		ghost:move()
 		ghost:animate()
 	end
 
+	function ghost:recall()
+		return ghost.state=='recall'
+	end
+
+	function ghost:follow()
+		return ghost.state=='follow'
+	end
+
+	function ghost:hold()
+		return ghost.state=='hold'
+	end
+
 	function ghost:draw()
-		if debug and ghost.selected then
+		if debug and debug_select and ghost.selected then
 			pal(7,12)
 			pal(7,13)
 			pal(7,8)
@@ -821,9 +819,15 @@ function ghost_new(x0,y0,num)
 	end
 
 	function ghost:move()
-		--ghost.dist=distance(ghost,player:get_queue(ghost.n))
-		ghost.dist=distance(ghost,player:get_rotation(ghost.n))
-		ghost:move_to_player()
+		if ghost:recall() then
+			ghost:recall_to_player()
+		elseif ghost:follow() then
+			ghost:follow_player()
+		elseif ghost:hold() then
+			ghost:hold_target()
+		else
+			assert(false)
+		end
 		ghost.x+=ghost.dx
 		ghost.y+=ghost.dy
 		if ghost.dx<0 then
@@ -834,17 +838,75 @@ function ghost_new(x0,y0,num)
 		ghost:update_bounds()
 	end
 
-	function ghost:move_to_player()
+	function ghost:recall_to_player()
+		ghost.state='recall'
+		ghost.target=player.queue
+		ghost:move_to()
+	end
+
+	function ghost:follow_player()
+		ghost.state='follow'
+		ghost.target=player:get_rotation(ghost.n)
+		ghost:move_to()
+	end
+
+	function ghost:hold_target()
+		ghost.state='hold'
+		--ghost.target=player.cmd_target
+		ghost:move_to()
+	end
+
+	function ghost:move_to()
+		local dist=distance(ghost,ghost.target)
 		local a=player_max_speed
-		--local q=player:get_queue(ghost.n)
+		if ghost:recall() and dist<a then
+			ghost:add_to_queue()
+		elseif ghost:hold() and ghost.cool_down==0 then
+			ghost:recall_to_player()
+		else
+			local q=ghost.target
+			local sx=(ghost.x1+ghost.x2)/2
+			local sy=(ghost.y1+ghost.y2)/2
+			local angle=atan2(q.x-sx,q.y-sy)
+			ghost.dx=cos(angle)*min(a,dist)
+			ghost.dy=sin(angle)*min(a*y_scalar,dist)
+			ghost.angle=angle
+			ghost.selected=q.selected
+		end
+	end
+
+	function ghost:follow_player_old()
+		local dist=distance(ghost,player:get_rotation(ghost.n))
+		local a=player_max_speed
 		local q=player:get_rotation(ghost.n)
 		local sx=(ghost.x1+ghost.x2)/2
 		local sy=(ghost.y1+ghost.y2)/2
 		local angle=atan2(q.x-sx,q.y-sy)
-		ghost.dx=cos(angle)*min(a,ghost.dist)
-		ghost.dy=sin(angle)*min(a*y_scalar,ghost.dist)
+		ghost.dx=cos(angle)*min(a,dist)
+		ghost.dy=sin(angle)*min(a*y_scalar,dist)
 		ghost.angle=angle
 		ghost.selected=q.selected
+	end
+
+	function ghost:move_to_target()
+		local dist=distance(ghost,ghost.target)
+		local a=player_max_speed
+		local q=ghost.target
+		local sx=(ghost.x1+ghost.x2)/2
+		local sy=(ghost.y1+ghost.y2)/2
+		local tx=(q.x1+q.x2)/2
+		local ty=(q.y1+q.y2)/2
+		local angle=atan2(tx-sx,ty-sy)
+		ghost.dx=cos(angle)*min(a,dist)
+		ghost.dy=sin(angle)*min(a*y_scalar,dist)
+		ghost.angle=angle
+		ghost.selected=false
+	end
+
+	function ghost:add_to_queue()
+		ghost.n=#ghosts
+		add(ghosts,ghost)
+		ghost:follow_player()
 	end
 
 	function ghost:update_bounds()
@@ -914,12 +976,34 @@ function ghost_new(x0,y0,num)
 		draw_shadow_line(a,b,n,x,y)
 	end
 
-	function ghost:action(x1,y1,x2,y2)
+	function ghost:action(target)
+		local enemy=rnd(get_enemy_target_select(target))
+		ghost.state='hold'
+
+		if enemy then
+			enemy:subscribe(ghost)
+			ghost.target={x1=enemy.x1,x2=enemy.x2,y1=enemy.y1,y2=enemy.y2,x=enemy.x,y=enemy.y}
+		else
+			ghost.target={x1=target.x1,x2=target.x2,y1=target.y1,y2=target.y2,x=target.x,y=target.y}
+			ghost.cool_down=ghost_cool_down
+		end
 	end
 
 	function ghost:die()
 		del(sprites,ghost)
-		del(ghosts,ghost)
+		--del(ghosts,ghost)
+	end
+
+	function ghost:on_notify(event,target)
+		if event=='death' then
+			ghost.state='recall'
+			target:unsubscribe(ghost)
+		elseif event=='move' then
+			ghost.target=target
+		else
+			print(event)
+			assert(false)
+		end
 	end
 
 	return ghost
@@ -929,12 +1013,9 @@ ghosts={}
 function ghosts_command(target)
 	local m=#ghosts
 	if m>0 and ghost_selected<=m then
-		local x1=target.x1
-		local y1=target.y1
-		local x2=target.x2
-		local y2=target.y2
 		local ghost=ghosts[ghost_selected]
-		ghost:action(x1,y1,x2,y2)
+		ghost:action(target)
+		del(ghosts,ghost)
 		update_ghosts()
 	end
 end
@@ -980,11 +1061,13 @@ function skeleton_new(x0,y0)
 		y2=y0+big_size*2+scalar,
 		state="bury",
 		nrise=0,
+		subscribers={},
 	}
 
 	function skeleton:update()
 		skeleton.tt=inc_tt(skeleton.tt)
 		skeleton:move()
+		skeleton:update_bounds()
 		skeleton:collision()
 		skeleton:animate()
 	end
@@ -1024,7 +1107,6 @@ function skeleton_new(x0,y0)
 		elseif skeleton.dx>0 then
 			skeleton.turned=false
 		end
-		skeleton:update_bounds()
 	end
 
 	function skeleton:crawl_to_player()
@@ -1046,6 +1128,7 @@ function skeleton_new(x0,y0)
 		skeleton.x2=skeleton.x+big_size
 		skeleton.y1=skeleton.y+big_size*2-scalar
 		skeleton.y2=skeleton.y+big_size*2+scalar
+		skeleton:notify("move",{x1=skeleton.x1,x2=skeleton.x2,y1=skeleton.y1,y2=skeleton.y2})
 	end
 
 	function skeleton:collision()
@@ -1224,10 +1307,37 @@ function skeleton_new(x0,y0)
 	end
 
 	function skeleton:die()
+		skeleton:notify('death',skeleton)
 		del(sprites,skeleton)
+		del(enemies,skeleton)
+	end
+
+	function skeleton:subscribe(subscriber)
+		add(skeleton.subscribers,subscriber)
+	end
+
+	function skeleton:unsubscribe(subscriber)
+		del(skeleton.subscribers,subscriber)
+	end
+
+	function skeleton:notify(event,data)
+		foreach(skeleton.subscribers,function(subscriber)
+			subscriber:on_notify(event,data)
+		end)
 	end
 	
 	return skeleton
+end
+
+enemies={}
+function get_enemy_target_select(target)
+	local enemy_select={}
+	foreach(enemies,function(enemy)
+		if collision(target,enemy) then
+			add(enemy_select,enemy)
+		end
+	end)
+	return enemy_select
 end
 -->8
 --map
