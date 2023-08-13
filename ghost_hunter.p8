@@ -955,7 +955,7 @@ function ghost_new(x0,y0,num)
 	    if x2>cemetary.width and self.dx>0 then
 			self.dx=0
 		end
-		if y1<horizon and self.dy<0 then
+		if y2<horizon and self.dy<0 then
 			self.dy=0
 		end
 		if y2>cemetary.height+horizon and self.dy>0 then
