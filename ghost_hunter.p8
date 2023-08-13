@@ -34,7 +34,7 @@ function start_game()
 
 	cemetary=cemetary_init()
 	cemetary:generate_graves()
-	cemetary:zoom_init(32)
+	cemetary:zoom_init(8)
 
 	player=player_new()
 	player:init()
@@ -81,9 +81,13 @@ function game_draw()
 	palt(1,true)
 	cemetary:draw()
 	draw_sprites()
+	camera()
 	if debug_print_ghost_num then
 		print(#ghosts,0,0,8)
+		--print(player.y2,0,0,8)
+		--print(cemetary.height+horizon,0,8,8)
 	end
+	camera(camx,camy)
 end
 
 function over_update()
@@ -97,6 +101,19 @@ function over_draw()
 	cls()
 	local message="game over"
 	print(message,64-(#message*8)/4,64,7)
+end
+
+function update_camera(px,py)
+	--camx=px-window_width/2
+	--camy=py-window_height/2
+	camx=mid(0,px-window_width/2,cemetary.width-screen_width)
+	camy=mid(0,py-window_height/2,cemetary.height-screen_height+horizon)
+end
+
+function clip_ground()
+	local h1=max(0,horizon-camy)
+	local h2=screen_height-h1
+	clip(0,h1,screen_width,h2)
 end
 
 function init_ghost(grave)
@@ -118,7 +135,7 @@ function update_sprites()
 end
 
 function draw_sprites()
-	clip(0,horizon,128,128-horizon)
+	clip_ground()
 	foreach(sprites,function(sprite)
 		sprite:draw_shadow()
 	end)
@@ -436,6 +453,9 @@ function player_new()
 		if y2>cemetary.height+horizon and self.dy>0 then
 			self.dy=0
 		end
+	local h1=horizon
+	local h2=cemetary.height-h1
+	rectfill(0,h1,screen_width,h2,2)
 	end
 
 	function self:land(surface)
@@ -484,6 +504,7 @@ function player_new()
 		self:update_queue()
 		self:update_dig_target()
 		self:update_cmd_target()
+		update_camera(self.x,self.y)
 	end
 
 	function self:update_bounds()
@@ -1355,6 +1376,9 @@ end
 cemetary={}
 
 horizon=64
+screen_width=128
+screen_height=128
+
 moon_r=16*sqrt(scalar)
 moon_x=96
 moon_y=20-10*(scalar-1)
@@ -1368,8 +1392,10 @@ sky_limit=-1000
 
 function cemetary_init()
 	local world={
-		width=128,
-		height=128-horizon,
+		--width=128,
+		--height=128-horizon,
+		width=128*2,
+		height=128,
 		stars={},
 		clouds={},
 		graves={},
@@ -1501,16 +1527,20 @@ function cemetary_init()
 	end
 	
 	function world:draw()
+		--camera
+		camera(0,camy)
+
 		--draw sky
 		cls(1)
 
-		--draw ground
-		rectfill(0,horizon,128,128,2)
-
-		world:draw_lantern_light()
-
 		world:draw_stars()
 		world:draw_moon()
+		draw_ground()
+
+
+		camera(camx,camy)
+		world:draw_lantern_light()
+
 		world:draw_clouds()
 
 		--world:draw_cemetary()
@@ -1522,7 +1552,7 @@ function cemetary_init()
 		local y1=c.y1
 		local x2=c.x2
 		local y2=c.y2
-		clip(0,horizon,128,128-horizon)
+		clip_ground()
 		ovalfill(x1,y1,x2,y2,14)
 		clip()
 	end
@@ -1640,6 +1670,13 @@ end
 function draw_star(s)
 	zset(s.x,s.y,7)
 end
+
+function draw_ground()
+	local h1=horizon
+	local h2=h1+cemetary.height
+	rectfill(0,h1,screen_width,h2,2)
+	--rectfill(0,horizon,128,128,2)
+end
 -->8
 --globals
 
@@ -1655,6 +1692,8 @@ function init_scalars()
 	moon_r=16*sqrt(scalar)
 	moon_y=20-10*(scalar-1)
 	num_stars=100/scalar
+	window_width=screen_width/scalar
+	window_height=screen_height/scalar
 end
 __gfx__
 00000000118888881188888811888888119911110000000011181111000000000000000011111111111111111115511111111111111111110000000000000000
