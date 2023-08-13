@@ -17,7 +17,7 @@ row_size=16
 big_size=8
 big_size=32
 big_size=16
-start_ghosts=5
+start_ghosts=1
 scalar=big_size/cell_size
 function _init()
 	ready_game=true
@@ -33,7 +33,7 @@ function start_game()
 	sprites={}
 
 	cemetary=cemetary_init()
-	cemetary:zoom_init(16)
+	cemetary:zoom_init(8)
 	cemetary:generate_graves()
 
 	player=player_new()
@@ -818,10 +818,12 @@ function ghost_new(x0,y0,num)
 		x2=x0+big_size,
 		y1=y0,
 		y2=y0+big_size*2,
-		state='recall',
+		state='lost',
 		selected=false,
 		cool_down=0,
-		health=100,
+		health=0,
+
+		target=cemetary:random_target(),
 	}
 
 	function ghost:update()
@@ -849,6 +851,10 @@ function ghost_new(x0,y0,num)
 		return ghost.state=='find'
 	end
 
+	function ghost:lost()
+		return ghost.state=='lost'
+	end
+
 	function ghost:draw()
 		if debug and debug_select and ghost.selected then
 			pal(7,12)
@@ -872,6 +878,8 @@ function ghost_new(x0,y0,num)
 			ghost:track_target()
 		elseif ghost:find() then
 			ghost:find_target()
+		elseif ghost:lost() then
+			ghost:becomes_lost()
 		else
 			assert(false)
 		end
@@ -906,6 +914,11 @@ function ghost_new(x0,y0,num)
 		ghost:move_to()
 	end
 
+	function ghost:becomes_lost()
+		ghost.state='lost'
+		ghost:move_to()
+	end
+
 	function ghost:move_to()
 		local dist=distance(ghost,ghost.target)
 		local a=player_max_speed
@@ -920,6 +933,11 @@ function ghost_new(x0,y0,num)
 			if ghost:track() and dist<a then
 				ghost.health=max(0,ghost.health-1)
 				ghost.target:drain()
+			end
+			if ghost:lost() then
+				if not ghost.target or tt%100==0 then
+					ghost.target=cemetary:random_target()
+				end
 			end
 			local q=ghost.target
 			local qx=(q.x1+q.x2)/2
@@ -949,7 +967,8 @@ function ghost_new(x0,y0,num)
 
 	function ghost:update_health()
 		if ghost.health<=0 then
-			ghost:die()
+			--ghost:die()
+			ghost:becomes_lost()
 		end
 	end
 
@@ -1613,6 +1632,12 @@ function cemetary_init()
 	function world:draw_moon()
 		circfill(moon_x,moon_y,moon_r,14)
 		circfill(moon_x+sqrt(25*scalar),moon_y-sqrt(25*scalar),moon_r,1)
+	end
+
+	function world:random_target()
+		local x=rnd(world.width-big_size*2)
+		local y=rnd(world.height-big_size*2)+horizon
+		return {x1=x,y1=y,x2=x+big_size,y2=y+big_size}
 	end
 
 	return world
