@@ -34,7 +34,7 @@ function start_game()
 
 	cemetary=cemetary_init()
 	cemetary:generate_graves()
-	cemetary:zoom_init(8)
+	cemetary:zoom_init(32)
 
 	player=player_new()
 	player:init()
@@ -409,13 +409,32 @@ function player_new()
 
 	function self:collision()
 		self:collision_floor()
+		self:collision_sides()
 		self:collision_map()
-		--self:collision_sprites()
 	end
 
 	function self:collision_floor()
 		if self.dz>0 and self.sz>self.surface then
 			self:land(self.surface)
+		end
+	end
+
+	function self:collision_sides()
+		local x1=self.x1+self.dx
+		local x2=self.x2+self.dx
+		local y1=self.y1+self.dy
+		local y2=self.y2+self.dy
+		if x1<0 and self.dx<0 then
+			self.dx=0
+		end
+	    if x2>cemetary.width and self.dx>0 then
+			self.dx=0
+		end
+		if y1<horizon and self.dy<0 then
+			self.dy=0
+		end
+		if y2>cemetary.height+horizon and self.dy>0 then
+			self.dy=0
 		end
 	end
 
@@ -1349,6 +1368,8 @@ sky_limit=-1000
 
 function cemetary_init()
 	local world={
+		width=128,
+		height=128-horizon,
 		stars={},
 		clouds={},
 		graves={},
