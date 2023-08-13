@@ -33,8 +33,8 @@ function start_game()
 	sprites={}
 
 	cemetary=cemetary_init()
+	cemetary:zoom_init(16)
 	cemetary:generate_graves()
-	cemetary:zoom_init(8)
 
 	player=player_new()
 	player:init()
@@ -103,11 +103,13 @@ function over_draw()
 	print(message,64-(#message*8)/4,64,7)
 end
 
-function update_camera(px,py)
+function update_camera(px1,py1,px2,py2)
+	local px=(px1+px2)/2
+	local py=(py1+py2)/2-big_size
 	--camx=px-window_width/2
 	--camy=py-window_height/2
-	camx=mid(0,px-window_width/2,cemetary.width-screen_width)
-	camy=mid(0,py-window_height/2,cemetary.height-screen_height+horizon)
+	camx=mid(0,px-screen_width/2,cemetary.width-screen_width)
+	camy=mid(0,py-screen_height/2,cemetary.height-screen_height+horizon)
 end
 
 function clip_ground()
@@ -504,7 +506,7 @@ function player_new()
 		self:update_queue()
 		self:update_dig_target()
 		self:update_cmd_target()
-		update_camera(self.x,self.y)
+		update_camera(self.x1,self.y1,self.x2,self.y2)
 	end
 
 	function self:update_bounds()
@@ -1402,10 +1404,15 @@ function cemetary_init()
 	}
 
 	function world:generate_graves()
+		local gw=big_size+3*scalar
+		local gh=big_size+3*scalar
+		world.width=gw*(num_grave_cols+1)
+		world.height=gh*(num_grave_rows+2)
+
 		for j=0,num_grave_cols do
 			for k=0,num_grave_rows-1 do
-				local x=12*j*scalar
-				local y=50+12*k*scalar
+				local x=gw*j
+				local y=horizon+gh*k
 				local f=rnd({10,11,12,13})
 				local d=rnd({26,27,28,29})
 				local h=grave_height(f)
@@ -1577,20 +1584,10 @@ function cemetary_init()
 	return world
 end
 
-path_cols={4}
-path_rows={3}
+--path_cols={4}
+--path_rows={3}
 function on_path(j,k)
-	for x in all(path_cols) do
-		if j==x then
-			return true
-		end
-	end
-	for x in all(path_rows) do
-		if k==x then
-			return true
-		end
-	end
-	return false
+	return j%4==0 or k%3==0
 end
 
 function grave_height(f)
