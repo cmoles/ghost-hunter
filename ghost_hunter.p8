@@ -17,7 +17,7 @@ row_size=16
 big_size=8
 big_size=32
 big_size=16
-start_ghosts=1
+start_ghosts=13
 scalar=big_size/cell_size
 function _init()
 	ready_game=true
@@ -455,9 +455,6 @@ function player_new()
 		if y2>cemetary.height+horizon and self.dy>0 then
 			self.dy=0
 		end
-	local h1=horizon
-	local h2=cemetary.height-h1
-	rectfill(0,h1,screen_width,h2,2)
 	end
 
 	function self:land(surface)
@@ -782,6 +779,13 @@ function player_new()
 		_update=over_update
 		_draw=over_draw
 	end
+
+	function self:lose_ghosts()
+		for ghost in all(ghosts) do
+			--ghost:gets_lost()
+			ghost:set_to_scatter()
+		end
+	end
 	
 	return self
 end
@@ -818,10 +822,10 @@ function ghost_new(x0,y0,num)
 		x2=x0+big_size,
 		y1=y0,
 		y2=y0+big_size*2,
-		state='lost',
+		state='recall',
 		selected=false,
 		cool_down=0,
-		health=0,
+		health=100,
 
 		target=cemetary:random_target(),
 	}
@@ -829,6 +833,8 @@ function ghost_new(x0,y0,num)
 	function ghost:update()
 		ghost.tt=inc_tt(ghost.tt)
 		ghost.cool_down=max(0,ghost.cool_down-1)
+		ghost:process()
+		ghost:collision()
 		ghost:move()
 		ghost:update_bounds()
 		ghost:update_health()
@@ -855,6 +861,10 @@ function ghost_new(x0,y0,num)
 		return ghost.state=='lost'
 	end
 
+	function ghost:scatter()
+		return ghost.state=='scatter'
+	end
+
 	function ghost:draw()
 		if debug and debug_select and ghost.selected then
 			pal(7,12)
@@ -869,7 +879,7 @@ function ghost_new(x0,y0,num)
 		palt(1,true)
 	end
 
-	function ghost:move()
+	function ghost:process()
 		if ghost:recall() then
 			ghost:recall_to_player()
 		elseif ghost:follow() then
@@ -879,10 +889,34 @@ function ghost_new(x0,y0,num)
 		elseif ghost:find() then
 			ghost:find_target()
 		elseif ghost:lost() then
-			ghost:becomes_lost()
+			ghost:gets_lost()
+		elseif ghost:scatter() then
+			ghost:scatters()
 		else
 			assert(false)
 		end
+	end
+
+	function ghost:collision()
+		local x1=self.x1+self.dx
+		local x2=self.x2+self.dx
+		local y1=self.y1+self.dy
+		local y2=self.y2+self.dy
+		if x1<0 and self.dx<0 then
+			self.dx=0
+		end
+	    if x2>cemetary.width and self.dx>0 then
+			self.dx=0
+		end
+		if y1<horizon and self.dy<0 then
+			self.dy=0
+		end
+		if y2>cemetary.height+horizon and self.dy>0 then
+			self.dy=0
+		end
+	end
+
+	function ghost:move()
 		ghost.x+=ghost.dx
 		ghost.y+=ghost.dy
 		if ghost.dx<0 then
@@ -914,9 +948,20 @@ function ghost_new(x0,y0,num)
 		ghost:move_to()
 	end
 
-	function ghost:becomes_lost()
+	function ghost:gets_lost()
 		ghost.state='lost'
 		ghost:move_to()
+	end
+
+	function ghost:scatters()
+		ghost.state='scatter'
+		ghost.target=player.queue
+		ghost:move_to()
+	end
+
+	function ghost:set_to_scatter()
+		ghost.state='scatter'
+		ghost.cool_down=ghost_cool_down
 	end
 
 	function ghost:move_to()
@@ -929,6 +974,8 @@ function ghost_new(x0,y0,num)
 			ghost:recall_to_player()
 		elseif ghost:find() and ghost.cool_down==0 then
 			ghost:recall_to_player()
+		elseif ghost:scatter() and ghost.cool_down==0 then
+			ghost:gets_lost()
 		else
 			if ghost:track() and dist<a then
 				ghost.health=max(0,ghost.health-1)
@@ -945,6 +992,9 @@ function ghost_new(x0,y0,num)
 			local sx=(ghost.x1+ghost.x2)/2
 			local sy=(ghost.y1+ghost.y2)/2
 			local angle=atan2(qx-sx,qy-sy)
+			if ghost:scatter() then
+				angle+=.5
+			end
 			ghost.dx=cos(angle)*min(a,dist)
 			ghost.dy=sin(angle)*min(a*y_scalar,dist)
 			ghost.angle=angle
@@ -968,7 +1018,7 @@ function ghost_new(x0,y0,num)
 	function ghost:update_health()
 		if ghost.health<=0 then
 			--ghost:die()
-			ghost:becomes_lost()
+			ghost:gets_lost()
 		end
 	end
 
@@ -1223,6 +1273,7 @@ function skeleton_new(x0,y0)
 			if not skeleton:bury() then
 				--player:die()
 				skeleton:die()
+				player:lose_ghosts()
 			end
 		elseif skeleton.dist<near then
 			if skeleton:crawl() then
