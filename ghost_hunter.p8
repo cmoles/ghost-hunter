@@ -430,6 +430,7 @@ function player_new()
 		self:collision_floor()
 		self:collision_sides()
 		self:collision_map()
+		self:collision_sprites()
 	end
 
 	function self:collision_floor()
@@ -492,6 +493,23 @@ function player_new()
 		else
 			self.dx,self.dy=dx,dy
 			self.surface=c3
+		end
+	end
+
+	function self:collision_sprites()
+		for sprite in all(sprites) do
+			if sprite.type=='ghost' then
+				self:collect_ghost(sprite)
+			end
+		end
+	end
+
+	function self:collect_ghost(ghost)
+		if not (ghost:lost() or ghost:scatter()) then
+			return
+		end
+		if collision(self,ghost) then
+			ghost:recall_to_player()
 		end
 	end
 
@@ -784,6 +802,7 @@ function player_new()
 		for ghost in all(ghosts) do
 			--ghost:gets_lost()
 			ghost:set_to_scatter()
+			del(ghosts,ghost)
 		end
 	end
 	
