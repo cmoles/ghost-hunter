@@ -19,7 +19,7 @@ row_size=16
 big_size=8
 big_size=32
 big_size=16
-start_ghosts=0
+start_ghosts=1
 scalar=big_size/cell_size
 function _init()
 	ready_game=true
@@ -119,7 +119,7 @@ end
 function over_draw()
 	camera()
 	cls()
-	local message="game over"
+	local message="you win"
 	print(message,64-(#message*8)/4,64,7)
 end
 
@@ -872,7 +872,7 @@ function ghost_new(x0,y0,num)
 		state='recall',
 		selected=false,
 		cool_down=0,
-		health=100,
+		health=90,
 
 		target=cemetary:random_target(),
 	}
@@ -981,6 +981,7 @@ function ghost_new(x0,y0,num)
 
 	function ghost:follow_player()
 		ghost.state='follow'
+		ghost.health=min(100,ghost.health+.01)
 		ghost.target=player:get_rotation(ghost.n)
 		ghost:move_to()
 	end
@@ -1557,17 +1558,17 @@ function cemetary_init()
 	}
 
 	function world:generate_graves()
-		local ngc=(num_grave_cols+level*2)*level
-		local ngr=(num_grave_rows+level)*level
+		local ngc=num_grave_cols*level
+		local ngr=num_grave_rows*level
 		local gw=big_size+3*scalar
 		local gh=big_size+3*scalar
-		world.width=gw*(ngc+1)
-		world.height=gh*(ngr+2)
+		world.width=gw*(ngc+2)
+		world.height=gh*(ngr)
 
 		for j=0,ngc do
 			for k=0,ngr-1 do
 				local x=gw*j
-				local y=horizon+gh*k
+				local y=big_size+gh*k
 				local f=rnd({10,11,12,13})
 				local d=rnd({26,27,28,29})
 				local h=grave_height(f)
@@ -1693,8 +1694,14 @@ function cemetary_init()
 		end
 		ready_game=false
 		level+=1
-		_update=level_update
-		_draw=level_draw
+		if level<4 then
+			_update=level_update
+			_draw=level_draw
+		else
+			level=1
+			_update=over_update
+			_draw=over_draw
+		end
 	end
 	
 	function world:draw()
