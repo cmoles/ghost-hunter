@@ -33,6 +33,8 @@ function start_game()
 	sprites={}
 
 	cemetary=cemetary_init()
+	cemetary:generate_graves()
+	cemetary:zoom_init(8)
 
 	player=player_new()
 	player:init()
@@ -1352,58 +1354,64 @@ function cemetary_init()
 		graves={},
 	}
 
-	for j=0,num_grave_cols do
-		for k=0,num_grave_rows-1 do
-			local x=12*j*scalar
-			local y=50+12*k*scalar
-			local f=rnd({10,11,12,13})
-			local d=rnd({26,27,28,29})
-			local h=grave_height(f)
-			if on_path(j,k) then
-			elseif rnd(1)<0.4 then
-			else
-				add(world.graves,{
-					f=f,
-					x=x,
-					y=y,
-					d=d,
-					h=h,
-					--open=rnd(1)<0.2,
-					open=false,
-					update=update_grave,
-					draw=draw_grave,
-					draw_boundary=draw_grave_boundary,
-					draw_shadow=draw_grave_shadow,
-				})
+	function world:generate_graves()
+		for j=0,num_grave_cols do
+			for k=0,num_grave_rows-1 do
+				local x=12*j*scalar
+				local y=50+12*k*scalar
+				local f=rnd({10,11,12,13})
+				local d=rnd({26,27,28,29})
+				local h=grave_height(f)
+				if on_path(j,k) then
+				elseif rnd(1)<0.4 then
+				else
+					add(world.graves,{
+						f=f,
+						x=x,
+						y=y,
+						d=d,
+						h=h,
+						--open=rnd(1)<0.2,
+						open=false,
+						update=update_grave,
+						draw=draw_grave,
+						draw_boundary=draw_grave_boundary,
+						draw_shadow=draw_grave_shadow,
+					})
+				end
 			end
+		end
+
+		foreach(world.graves,function(g)
+			add(sprites,g)
+		end)
+	end
+
+	function world:init_clouds()
+		for i=1,num_clouds do
+			local cx=rnd(cloud_div/num_clouds)
+			local cdx=cloud_div*i-64+cx
+			add(world.clouds, {
+				x=cdx,
+				y=rnd_cloud_y(),
+				dx=rnd_cloud_dx(),
+				frame=70,
+			})
 		end
 	end
 
-	foreach(world.graves,function(g)
-		add(sprites,g)
-	end)
-
-	for i=1,num_clouds do
-		local cx=rnd(cloud_div/num_clouds)
-		local cdx=cloud_div*i-64+cx
-		add(world.clouds, {
-			x=cdx,
-			y=rnd_cloud_y(),
-			dx=rnd_cloud_dx(),
-			frame=70,
-		})
-	end
-
-	for i=1,num_stars do
-		local sx=flr(rnd(128))
-		local sy=flr(rnd(60))
-		local rx=abs(sx-moon_x)>(moon_r+2)
-		local ry=abs(sy-moon_y)>(moon_r+2)
-		if rx or ry then
-			add(world.stars,{
-				x=sx,
-				y=sy,
-			})
+	function world:init_stars()
+		for i=1,num_stars do
+			local sx=flr(rnd(128))
+			local sy=flr(rnd(60))
+			local rx=abs(sx-moon_x)>(moon_r+2)
+			local ry=abs(sy-moon_y)>(moon_r+2)
+			if rx or ry then
+				add(world.stars,{
+					x=sx,
+					y=sy,
+				})
+			end
 		end
 	end
 
@@ -1457,6 +1465,14 @@ function cemetary_init()
 			end
 		end)
 		return g
+	end
+
+	function world:zoom_init(size)
+		big_size=size
+		scalar=big_size/cell_size
+		init_scalars()
+		world:init_clouds()
+		world:init_stars()
 	end
 	
 	function world:update()
@@ -1602,6 +1618,22 @@ end
 
 function draw_star(s)
 	zset(s.x,s.y,7)
+end
+-->8
+--globals
+
+function init_scalars()
+	player_speed=.25*scalar
+	gravity=0.2*scalar
+	player_max_speed=1.5*scalar
+	y_scalar=.5*scalar
+	bound_width=4*scalar
+	bound_height=2*scalar
+	skeleton_crawl_speed=0.5*scalar
+	skeleton_float_speed=0.3*scalar
+	moon_r=16*sqrt(scalar)
+	moon_y=20-10*(scalar-1)
+	num_stars=100/scalar
 end
 __gfx__
 00000000118888881188888811888888119911110000000011181111000000000000000011111111111111111115511111111111111111110000000000000000
