@@ -34,8 +34,11 @@ function start_game()
 	tt=0
 	sprites={}
 
+	local zoom_list={32,16,8}
+	local zoom=zoom_list[level]
+
 	cemetary=cemetary_init()
-	cemetary:zoom_init(16)
+	cemetary:zoom_init(zoom)
 	cemetary:generate_graves()
 
 	player=player_new()
@@ -1547,9 +1550,9 @@ end
 
 cemetary={}
 
-horizon=64
 screen_width=128
 screen_height=128
+horizon=64
 
 moon_r=16*sqrt(scalar)
 moon_x=96
@@ -1586,7 +1589,7 @@ function cemetary_init()
 		for j=0,ngc do
 			for k=0,ngr-1 do
 				local x=gw*j
-				local y=big_size+gh*k
+				local y=gh*k+horizon/scalar-big_size*(level-1)
 				local f=rnd({10,11,12,13})
 				local d=rnd({26,27,28,29})
 				local h=grave_height(f)
