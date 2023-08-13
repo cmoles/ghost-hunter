@@ -11,13 +11,15 @@ debug_select=false
 debug_print_ghost_num=false
 --debug_print_ghost_num=true
 
+level=1
+
 sprites={}
 cell_size=8
 row_size=16
 big_size=8
 big_size=32
 big_size=16
-start_ghosts=13
+start_ghosts=0
 scalar=big_size/cell_size
 function _init()
 	ready_game=true
@@ -33,7 +35,7 @@ function start_game()
 	sprites={}
 
 	cemetary=cemetary_init()
-	cemetary:zoom_init(8)
+	cemetary:zoom_init(16)
 	cemetary:generate_graves()
 
 	player=player_new()
@@ -57,9 +59,10 @@ function start_screen()
 end
 
 function start_update()
-	if btn(🅾️) then
+	if btnp(🅾️) then
 		ready_game=false
-		start_game()
+		_update=level_update
+		_draw=level_draw
 	end
 end
 
@@ -90,6 +93,22 @@ function game_draw()
 	camera(camx,camy)
 end
 
+function level_update()
+	if ready_game and btn(🅾️) then
+		ready_game=false
+		start_game()
+	elseif not ready_game and not btn(🅾️) then
+		ready_game=true
+	end
+end
+
+function level_draw()
+	camera()
+	cls()
+	local message="level "..level
+	print(message,64-(#message*8)/4,64,7)
+end
+
 function over_update()
 	if (btnp(🅾️)) then
 		_update=start_update
@@ -98,6 +117,7 @@ function over_update()
 end
 
 function over_draw()
+	camera()
 	cls()
 	local message="game over"
 	print(message,64-(#message*8)/4,64,7)
@@ -257,6 +277,7 @@ function player_new()
 		cool_down_cmd=0,
 		state="idle",
 		surface=0,
+		emote=0,
 	}
 
 	function self:init()
@@ -319,6 +340,7 @@ function player_new()
 	function self:get_input()
 		self.cool_down_dig=max(0,self.cool_down_dig-1)
 		self.cool_down_cmd=max(0,self.cool_down_cmd-1)
+		self.emote=max(0,self.emote-1)
 		self:get_direction_input()
 		self:get_jump_input()
 		self:get_dig_input()
@@ -658,7 +680,11 @@ function player_new()
 		if self.hold_jump>0 or self.cool_down_dig>begin_cool_down/2 then
 			y+=1*scalar
 		end
-		zspr(self.frame_head,self.x,y,self.turned)
+		if self.emote>0 then
+			zspr(self.frame_head+1,self.x,y,self.turned)
+		else
+			zspr(self.frame_head,self.x,y,self.turned)
+		end
 	end
 
 	function self:get_frame_body()
@@ -800,6 +826,7 @@ function player_new()
 	end
 
 	function self:lose_ghosts()
+		self.emote=3*begin_cool_down
 		for ghost in all(ghosts) do
 			--ghost:gets_lost()
 			ghost:set_to_scatter()
@@ -1512,8 +1539,10 @@ moon_y=20-10*(scalar-1)
 num_stars=100/scalar
 num_clouds=2
 cloud_div=(128+32)/num_clouds
-num_grave_cols=12
-num_grave_rows=6
+--num_grave_cols=12
+--num_grave_rows=6
+num_grave_cols=3
+num_grave_rows=3
 sky_limit=-1000
 
 function cemetary_init()
@@ -1528,13 +1557,15 @@ function cemetary_init()
 	}
 
 	function world:generate_graves()
+		local ngc=(num_grave_cols+level*2)*level
+		local ngr=(num_grave_rows+level)*level
 		local gw=big_size+3*scalar
 		local gh=big_size+3*scalar
-		world.width=gw*(num_grave_cols+1)
-		world.height=gh*(num_grave_rows+2)
+		world.width=gw*(ngc+1)
+		world.height=gh*(ngr+2)
 
-		for j=0,num_grave_cols do
-			for k=0,num_grave_rows-1 do
+		for j=0,ngc do
+			for k=0,ngr-1 do
 				local x=gw*j
 				local y=horizon+gh*k
 				local f=rnd({10,11,12,13})
@@ -1655,6 +1686,15 @@ function cemetary_init()
 	
 	function world:update()
 		world:update_clouds()
+		for grave in all(world.graves) do
+			if not grave.open then
+				return
+			end
+		end
+		ready_game=false
+		level+=1
+		_update=level_update
+		_draw=level_draw
 	end
 	
 	function world:draw()
@@ -1729,12 +1769,11 @@ function update_grave(g)
 end
 
 function open_grave(g)
-	--if rnd(1)<0.5 then
+	if #ghosts>0 and rnd(1)<0.5 then
 		init_skeleton(g)
-	--else
-		--init_ghost(g)
-		--init_zombie(g)
-	--end
+	else
+		init_ghost(g)
+	end
 end
 
 function get_tombstone_boundary(g)
