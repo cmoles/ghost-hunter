@@ -1752,7 +1752,9 @@ function cemetary_init()
 		local x2=c.x2
 		local y2=c.y2
 		clip_ground()
-		ovalfill(x1,y1,x2,y2,14)
+		if not player:dig() then
+			ovalfill(x1,y1,x2,y2,14)
+		end
 		clip()
 	end
 
